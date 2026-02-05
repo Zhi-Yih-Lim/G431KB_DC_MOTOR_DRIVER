@@ -1,8 +1,9 @@
-&timers2 {
+&timers4 {
 	status = "okay";
 	pwm2: pwm{
 		status = "okay";
-		pinctrl-0 = <&tim2_ch3_pa2>;
+		/* Using TIM4 (16-bit) independent channel 1 connected to pin pa11 on the board */
+		pinctrl-0 = <tim4_ch1_pa11>;
 		pinctrl-names = "default";
 	};
 };
