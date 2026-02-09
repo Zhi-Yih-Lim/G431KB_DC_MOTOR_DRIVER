@@ -2,8 +2,8 @@
 	status = "okay";
 	pwm2: pwm{
 		status = "okay";
-		/* Using TIM4 (16-bit) independent channel 1 connected to pin pa11 on the board */
-		pinctrl-0 = <tim4_ch1_pa11>;
+		/* Using TIM3 (16-bit) independent channel 1 connected to pin pa6 on the board */
+		pinctrl-0 = <&tim3_ch1_pa6>;
 		pinctrl-names = "default";
 	};
 };
