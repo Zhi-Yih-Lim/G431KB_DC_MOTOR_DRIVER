@@ -4,26 +4,44 @@
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 
-// First, get the node id from the node label "pwm2",
-// then get the node's full name from the node id of "pwm2".
-#define PWM_Test DEVICE_DT_NAME(DT_NODELABEL(pwm2))
+// Setting node identifier for PWM
+#define PWM3_NODE_ID DT_NODELABEL(pwm3)
+
+// Get device pointer from node identifier
+static const struct device *const pwm3_dev = DEVICE_DT_GET(PWM3_NODE_ID); // Static to restrict visiblity locally.
 
 /* Macros for PWM control*/
-// Period 
+#define PWM_PERIOD 1890 // In clock cycles at 5.88 nanoseconds per cycle.
+#define PWM_DUTY_CYCLE 945 // In clock cycles at 5.88 nanoseconds per cycle.
 
 
 int main (void)
 {
-    const struct device *pwm_dev = NULL;
-    pwm_dev = device_get_binding(PWM_Test);
-
-    if(!pwm_dev)
+    // Check to see if PWM device is ready.
+    if(!device_is_ready(pwm3_dev))
     {
-        printk("Cannot find PWM device!\n");
+        printk("Cannot find PWM3 device!\n");
         return 0;
     }
     else{
         printk("PWM device found\n");
+    }
+
+    // Set PWM parameters
+    if(!pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD, PWM_DUTY_CYCLE, PWM_POLARITY_NORMAL)){
+        printk("Set IN1 pwm without error.\n");
+    }
+    else{
+        printk("Failed to set PWM cycles for IN1\n");
+        return 0;
+    }
+
+    if(!pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD, PWM_DUTY_CYCLE, PWM_POLARITY_INVERTED)){
+        printk("Set IN2 without error.\n");
+    }
+    else{
+        printk("Failed to set PWM cycles for IN2\n");
+        return 0;
     }
 
     return 0;

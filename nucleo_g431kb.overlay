@@ -1,9 +1,10 @@
-&timers4 {
+&timers3 {
 	status = "okay";
-	pwm2: pwm{
+	pwm3: pwm{
 		status = "okay";
-		/* Using TIM3 (16-bit) independent channel 1 connected to pin pa6 on the board */
-		pinctrl-0 = <&tim3_ch1_pa6>;
+		/* Using TIM3 (16-bit) independent channel 1 connected to pin pa6 on the board for IN1 on DRV8871*/
+		/* Using TIM3 (16-bit) independent channel 2 connected to pin pa7 on the board for IN2 on DRV8871*/
+		pinctrl-0 = <&tim3_ch1_pa6 &tim3_ch2_pa7>;
 		pinctrl-names = "default";
 	};
 };
