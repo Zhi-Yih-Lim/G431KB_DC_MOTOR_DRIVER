@@ -15,7 +15,8 @@ static const struct device *const pwm3_dev = DEVICE_DT_GET(PWM3_NODE_ID);
 // Macros
 // ============================================================================
 static const uint32_t CLK_FREQ = 170000000; //Clock frequency of timer 3
-static const uint32_t DRV8871_FREQ = 90000000; // Desired frequency to drive the DRV8871.
+static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the DRV8871.
+static const uint8_t PWM_DUTY_CYCLE = 50; // Desired duty cycle in integer percentage.
 
 /* Internal helper functions */
 static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq, 
@@ -76,8 +77,13 @@ static void _init_pwm(void){
 
     PWM_PERIOD_CLK_CYCLES = _calc_pwm_period_clk_cycles(CLK_FREQ, 
                                                         DRV8871_FREQ);
+
+    printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
+
     PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
-                                                    50); 
+                                                    PWM_DUTY_CYCLE); 
+
+    printk("_init_pwm :: The number of clock cycles for 50 percent duty cycle is %d\n", PWM_DUTY_CLK_CYCLES);
 
 }
 
@@ -95,10 +101,10 @@ static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq,
                                             uint32_t trgt_freq){
 
     // Calculate the time for one cycle of the timer's frequency.
-    float timer_clk_cycle_sec = 1.0/clk_freq;
+    float timer_clk_cycle_sec = 1.0f/clk_freq;
 
     // Calculate the time for one period of the deisred PWM output frequency.
-    float pwm_period_sec = 1.0/trgt_freq;
+    float pwm_period_sec = 1.0f/trgt_freq;
 
     // Calculate the number of clock cycles for one PWM period, rounded up.
     // (!) Personal choice for rounding up as it is okay for one PWM period to
