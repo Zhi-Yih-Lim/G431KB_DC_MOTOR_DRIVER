@@ -11,12 +11,14 @@
 // Get device pointer from node identifier
 static const struct device *const pwm3_dev = DEVICE_DT_GET(PWM3_NODE_ID);
 
+typedef enum {STAT, CLKW, CCLKW} Dir;
+
 // ============================================================================
 // Macros
 // ============================================================================
 static const uint32_t CLK_FREQ = 170000000; //Clock frequency of timer 3
 static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the DRV8871.
-static const uint8_t PWM_DUTY_CYCLE = 50; // Desired duty cycle in integer percentage.
+//static const uint8_t PWM_DUTY_CYCLE = 50; // Desired duty cycle in integer percentage.
 
 /* Internal helper functions */
 static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq, 
@@ -25,9 +27,12 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                                           uint8_t on_percent);
 static void _init_pwm(void);
 
+static void _set_pwm(Dir direction, uint8_t power);
+
 /* Locally global variables */
-static uint32_t PWM_PERIOD_CLK_CYCLES;
-static uint16_t PWM_DUTY_CLK_CYCLES;
+static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
+static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
+                                    // duty cycle.
 
 
 int main (void)
@@ -80,10 +85,10 @@ static void _init_pwm(void){
 
     printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
 
-    PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
-                                                    PWM_DUTY_CYCLE); 
+    //PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
+    //                                                PWM_DUTY_CYCLE); 
 
-    printk("_init_pwm :: The number of clock cycles for 50 percent duty cycle is %d\n", PWM_DUTY_CLK_CYCLES);
+    //printk("_init_pwm :: The number of clock cycles for 50 percent duty cycle is %d\n", PWM_DUTY_CLK_CYCLES);
 
 }
 
@@ -127,5 +132,68 @@ static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq,
 static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                                           uint8_t on_percent){
     return floor(on_percent/100.0*period_clk_cycle);
+
+}
+
+/*
+    Brief: Controls the PWM signals of PA6 and PA7 depending on the input
+           arguments.
+
+    @param direction: The intended direction of rotation of the motor 
+                      (when viewed from the front side exposed shaft).
+    @param power: The power of the motor (0-100).
+*/
+static void _set_pwm(Dir direction, uint8_t power){
+
+    uint8_t _pwr = 0;
+    Dir _dir = 0;
+    
+    // Set a cap on the maximum power
+    if(power > 100){
+        printk("_set_pwm :: Power set to be above 100, capping power to 100.\n");
+        _pwr = 100;
+    }
+    else{
+        _pwr = power;
+    }
+
+    // Set the motor to be stationary in the event of an undocumented
+    // 'Dir' input.
+    if(direction < 0 || direction > 2){
+        printk("_set_pwm :: Direction set undefined, stopping the motor.\n");
+        _dir = 0;
+    }
+    else{
+        _dir = direction;
+    }
+    
+    // Calculate he number of signal high clock cycles based.
+    PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
+                                                   _pwr);
+
+    switch(direction){
+        case 0: // Motors are stationary
+            // Set IN1 and IN2 to both be high at 100% to enter braking mode.
+            if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                              PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 0 failed to set PA6.\n");
+                return;
+            }
+
+            if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                              PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 0 failed to set PA7.\n");
+                return;
+            }
+
+            break;
+        case 1: // Motors rotating clockwise
+            // Set IN1 to be high at desired duty cycle and keep IN2 LOW.
+            break;
+        case 2: // Motors rotating counter clockwise
+            break;
+        default:
+            break;
+    }
 
 }
