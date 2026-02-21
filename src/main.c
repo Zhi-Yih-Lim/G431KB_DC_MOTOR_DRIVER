@@ -33,7 +33,8 @@ static void _set_pwm(Dir direction, uint8_t power);
 static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
 static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
                                     // duty cycle.
-
+static uint8_t IN1_S; // The signal state for the PWM channel connected to IN1
+static uint8_t IN2_S; // The signal state for the PWM channel connected to IN2
 
 int main (void)
 {
@@ -84,6 +85,8 @@ static void _init_pwm(void){
                                                         DRV8871_FREQ);
 
     printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
+
+    IN1_S = IN2_S = 0;
 
     //PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
     //                                                PWM_DUTY_CYCLE); 
@@ -177,22 +180,94 @@ static void _set_pwm(Dir direction, uint8_t power){
             if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
                               PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
                 printk("_set_pwm :: Case 0 failed to set PA6.\n");
+                
+                // Check to see if IN2 is set to high. If so, set it LOW.
+                if(IN2_S){
+                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                                   0, PWM_POLARITY_NORMAL);
+                    IN2_S = 0;
+                }
                 return;
             }
+
+            IN1_S = 1;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                               PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
                 printk("_set_pwm :: Case 0 failed to set PA7.\n");
+
+                // Reset the output of channel 1 to be LOW.
+                pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                              0, PWM_POLARITY_NORMAL);
+                IN1_S = 0;
                 return;
             }
 
+            IN2_S = 1;
             break;
+
         case 1: // Motors rotating clockwise
             // Set IN1 to be high at desired duty cycle and keep IN2 LOW.
+            if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 1 failed to set PA6.\n");
+                // Check to see if IN2 is set to high. If so, set it LOW.
+                if(IN2_S){
+                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                                   0, PWM_POLARITY_NORMAL);
+                    IN2_S = 0;
+                }
+                return;
+            }
+
+            IN1_S = 1;
+
+            if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                              0, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 1 failed to set PA7.\n");
+                // Reset the output of channel 1 to be LOW.
+                pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                              0, PWM_POLARITY_NORMAL);
+                IN1_S = 0;
+                return;
+            }
+
+            IN2_S = 0;
             break;
         case 2: // Motors rotating counter clockwise
+            // Set IN1 to be LOW and PWM IN2.
+            if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                              0, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 2 failed to set PA6.\n");
+                // Check to see if IN2 is set to high. If so, set it LOW.
+                if(IN2_S){
+                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                                   0, PWM_POLARITY_NORMAL);
+                    IN2_S = 0;
+                }
+                return;
+            }
+
+            IN1_S = 0;
+
+            if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                printk("_set_pwm :: Case 2 failed to set PA7.\n");
+                return;
+            }
+
+            IN2_S = 1;
             break;
         default:
+            printk("_set_pwm :: Case \'default\',"
+                   "setting PA6 and PA7 to HIGH");
+            // Set both IN1 and IN2 channels to be HIGH.
+            pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                           PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL);
+            pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                           PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL);
+            IN1_S = 1;
+            IN2_S = 1;
             break;
     }
 
