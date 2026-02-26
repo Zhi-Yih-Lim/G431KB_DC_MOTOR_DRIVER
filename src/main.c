@@ -16,9 +16,10 @@ typedef enum {STAT, CLKW, CCLKW} Dir;
 // ============================================================================
 // Macros
 // ============================================================================
+#define PWM_THREAD_STACK_SIZE 1024 // Size of PWM thread on stack
+#define PWM_THREAD_PRIORITY 7 // PWM thread priority level
 static const uint32_t CLK_FREQ = 170000000; //Clock frequency of timer 3
 static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the DRV8871.
-//static const uint8_t PWM_DUTY_CYCLE = 50; // Desired duty cycle in integer percentage.
 
 /* Internal helper functions */
 static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq, 
@@ -29,6 +30,12 @@ static void _init_pwm(void);
 
 static void _set_pwm(Dir direction, uint8_t power);
 
+// PWM thread entry point
+void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3);
+
+/* Define stack area for PWM thread */
+K_THREAD_STACK_DEFINE(pwm_thread_stack, PWM_THREAD_STACK_SIZE);
+
 /* Locally global variables */
 static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
 static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
@@ -36,8 +43,16 @@ static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
 static uint8_t IN1_S; // The signal state for the PWM channel connected to IN1
 static uint8_t IN2_S; // The signal state for the PWM channel connected to IN2
 
+static struct k_thread pwm_thread; // Zephyr thread structure representing the 
+                                   // PWM thread.
+static const uint32_t pwm_thread_sleep_ms = 200; // Sleep period for the PWM
+                                                 // thread.
+
+
 int main (void)
 {
+    k_tid_t pwm_tid; // PWM thread ID.
+
     // Check to see if PWM device is ready.
     if(!device_is_ready(pwm3_dev))
     {
@@ -51,25 +66,34 @@ int main (void)
     // Initialize PWM static variables
     _init_pwm();
 
-    // Set PWM parameters
-    if(!pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                       PWM_DUTY_CLK_CYCLES, PWM_POLARITY_NORMAL)){
-        printk("Set IN1 pwm without error.\n");
-    }
-    else{
-        printk("Failed to set PWM cycles for IN1\n");
-        return 0;
-    }
+    // Start the PWM thread
+    pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
+                              pwm_thread_stack,    // Pointer to stack space 
+                              K_THREAD_STACK_SIZEOF(pwm_thread_stack),
+                              pwm_thread_start,    // Thread entry point func                          
+                              NULL,                // arg_1
+                              NULL,                // arg_2
+                              NULL,                // arg_3
+                              PWM_THREAD_PRIORITY, // Thread priority level
+                              0,                   // Thread options
+                              K_NO_WAIT            // Delay b4 starting thread
+                             );
 
-    if(!pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                       PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-        printk("Set IN2 without error.\n");
-    }
-    else{
-        printk("Failed to set PWM cycles for IN2\n");
-        return 0;
-    }
+    while(1){
+         // Set PWM parameters
+        _set_pwm(CLKW, 50);
 
+        k_msleep(2000);
+
+        _set_pwm(CCLKW, 20);
+
+        k_msleep(2000);
+
+        _set_pwm(STAT, 30);
+
+        k_msleep(2000);
+    }
+       
     return 0;
 }
 
@@ -87,11 +111,6 @@ static void _init_pwm(void){
     printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
 
     IN1_S = IN2_S = 0;
-
-    //PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
-    //                                                PWM_DUTY_CYCLE); 
-
-    //printk("_init_pwm :: The number of clock cycles for 50 percent duty cycle is %d\n", PWM_DUTY_CLK_CYCLES);
 
 }
 
@@ -271,4 +290,22 @@ static void _set_pwm(Dir direction, uint8_t power){
             break;
     }
 
+}
+
+void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
+    
+    int ret = 0;
+    Dir pwm_dir = STAT;
+
+    // Start off the PWM in braking mode
+    _set_pwm(pwm_dir, 0);        
+
+    while(1){
+        // Check the message queue for any changes to motor's direction
+
+        // Set the the PWM 
+
+        // Sleep the thread to relinquish resource for other threads
+        k_msleep(pwm_thread_sleep_ms);
+    }
 }
