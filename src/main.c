@@ -34,7 +34,7 @@ static void _set_pwm(Dir direction, uint8_t power);
 void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3);
 
 /* Define stack area for PWM thread */
-K_THREAD_STACK_DEFINE(pwm_thread_stack, PWM_THREAD_STACK_SIZE);
+//K_THREAD_STACK_DEFINE(pwm_thread_stack, PWM_THREAD_STACK_SIZE);
 
 /* Locally global variables */
 static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
@@ -43,15 +43,28 @@ static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
 static uint8_t IN1_S; // The signal state for the PWM channel connected to IN1
 static uint8_t IN2_S; // The signal state for the PWM channel connected to IN2
 
-static struct k_thread pwm_thread; // Zephyr thread structure representing the 
-                                   // PWM thread.
+//static struct k_thread pwm_thread; // Zephyr thread structure representing the 
+//                                   // PWM thread.
 static const uint32_t pwm_thread_sleep_ms = 200; // Sleep period for the PWM
                                                  // thread.
+static const uint32_t main_thread_sleep_ms = 500;
+
+// PWM thread id to be used in 'K_THREAD_DEFINE' below.
+extern const k_tid_t pwm_tid;
+
+// Statically defining and initializing a thread.
+K_THREAD_DEFINE(pwm_tid,                // Name of the thread
+                PWM_THREAD_STACK_SIZE,  // Stack size of thread in bytes 
+                pwm_thread_start,       // Thread entry function
+                NULL, NULL, NULL,       // arg_1, arg_2, and arg_3
+                PWM_THREAD_PRIORITY,    // Thread priority 
+                0,                      // Thread options
+                0);                     // Scheduling delay
 
 
 int main (void)
 {
-    k_tid_t pwm_tid; // PWM thread ID.
+    //k_tid_t pwm_tid; // PWM thread ID.
 
     // Check to see if PWM device is ready.
     if(!device_is_ready(pwm3_dev))
@@ -66,32 +79,22 @@ int main (void)
     // Initialize PWM static variables
     _init_pwm();
 
-    // Start the PWM thread
-    pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
-                              pwm_thread_stack,    // Pointer to stack space 
-                              K_THREAD_STACK_SIZEOF(pwm_thread_stack),
-                              pwm_thread_start,    // Thread entry point func                          
-                              NULL,                // arg_1
-                              NULL,                // arg_2
-                              NULL,                // arg_3
-                              PWM_THREAD_PRIORITY, // Thread priority level
-                              0,                   // Thread options
-                              K_NO_WAIT            // Delay b4 starting thread
-                             );
+    //// Start the PWM thread
+    //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
+    //                          pwm_thread_stack,    // Pointer to stack space 
+    //                          K_THREAD_STACK_SIZEOF(pwm_thread_stack),
+    //                          pwm_thread_start,    // Thread entry point func                          
+    //                          NULL,                // arg_1
+    //                          NULL,                // arg_2
+    //                          NULL,                // arg_3
+    //                          PWM_THREAD_PRIORITY, // Thread priority level
+    //                          0,                   // Thread options
+    //                          K_NO_WAIT            // Delay b4 starting thread
+    //                         );
 
     while(1){
-         // Set PWM parameters
-        _set_pwm(CLKW, 50);
-
-        k_msleep(2000);
-
-        _set_pwm(CCLKW, 20);
-
-        k_msleep(2000);
-
-        _set_pwm(STAT, 30);
-
-        k_msleep(2000);
+        printk("Entered main loop.\n");
+        k_msleep(main_thread_sleep_ms);
     }
        
     return 0;
@@ -306,6 +309,19 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
         // Set the the PWM 
 
         // Sleep the thread to relinquish resource for other threads
+        //k_msleep(pwm_thread_sleep_ms);
+
+        _set_pwm(CLKW, 50);
+
         k_msleep(pwm_thread_sleep_ms);
+
+        _set_pwm(CCLKW, 20);
+
+        k_msleep(pwm_thread_sleep_ms);
+
+        _set_pwm(STAT, 30);
+
+        k_msleep(pwm_thread_sleep_ms);
+ 
     }
 }
