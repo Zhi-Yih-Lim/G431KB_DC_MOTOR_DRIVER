@@ -1,10 +1,24 @@
+&pinctrl {
+	tim3_ch1_pa6_pullup: tim3_ch1_pa6_pullup{
+		pinmux = <STM32_PINMUX('A', 6, AF2)>;
+		bias-pull-up;
+	};
+	
+	tim3_ch2_pa7_pullup: tim3_ch2_pa7_pullup{
+		pinmux = <STM32_PINMUX('A', 7, AF2)>;
+		bias-pull-up;
+	};
+};
+
+
+
 &timers3 {
 	status = "okay";
 	pwm3: pwm{
 		status = "okay";
 		/* Using TIM3 (16-bit) independent channel 1 connected to pin pa6 on the board for IN1 on DRV8871*/
 		/* Using TIM3 (16-bit) independent channel 2 connected to pin pa7 on the board for IN2 on DRV8871*/
-		pinctrl-0 = <&tim3_ch1_pa6 &tim3_ch2_pa7>;
+		pinctrl-0 = <&tim3_ch1_pa6_pullup &tim3_ch2_pa7_pullup>;
 		pinctrl-names = "default";
 	};
 };

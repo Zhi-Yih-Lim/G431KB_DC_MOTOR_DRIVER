@@ -40,12 +40,12 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3);
 static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
 static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
                                     // duty cycle.
-static uint8_t IN1_S; // The signal state for the PWM channel connected to IN1
-static uint8_t IN2_S; // The signal state for the PWM channel connected to IN2
+static uint8_t PA6_S; // Indicates whether pin PA6 is being PWMed (ACTIVE LOW)
+static uint8_t PA7_S; // Indicates whether pin PA7 is being PWMed (ACTIVE LOW)
 
 //static struct k_thread pwm_thread; // Zephyr thread structure representing the 
 //                                   // PWM thread.
-static const uint32_t pwm_thread_sleep_ms = 200; // Sleep period for the PWM
+static const uint32_t pwm_thread_sleep_ms = 500; // Sleep period for the PWM
                                                  // thread.
 static const uint32_t main_thread_sleep_ms = 500;
 
@@ -113,7 +113,7 @@ static void _init_pwm(void){
 
     printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
 
-    IN1_S = IN2_S = 0;
+    PA6_S = PA7_S = 0;
 
 }
 
@@ -198,60 +198,49 @@ static void _set_pwm(Dir direction, uint8_t power){
 
     switch(direction){
         case 0: // Motors are stationary
-            // Set IN1 and IN2 to both be high at 100% to enter braking mode.
+            // Set PA6 and PA7 to both be ACTIVE LOW at 0% duty-cycle 
+            // (inverted polarity) to enter braking mode.
             if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                              PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                              0, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 0 failed to set PA6.\n");
-                
-                // Check to see if IN2 is set to high. If so, set it LOW.
-                if(IN2_S){
-                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                                   0, PWM_POLARITY_NORMAL);
-                    IN2_S = 0;
-                }
                 return;
             }
 
-            IN1_S = 1;
+            PA6_S = 1;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                              PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                              0, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 0 failed to set PA7.\n");
-
-                // Reset the output of channel 1 to be LOW.
-                pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                              0, PWM_POLARITY_NORMAL);
-                IN1_S = 0;
                 return;
             }
 
-            IN2_S = 1;
+            PA7_S = 1;
             break;
 
         case 1: // Motors rotating clockwise
             // Set IN1 to be high at desired duty cycle and keep IN2 LOW.
             if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                              0, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 1 failed to set PA6.\n");
-                // Check to see if IN2 is set to high. If so, set it LOW.
-                if(IN2_S){
-                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                                   0, PWM_POLARITY_NORMAL);
-                    IN2_S = 0;
-                }
-                return;
+                //// Check to see if IN2 is set to high. If so, set it LOW.
+                //if(IN2_S){
+                //    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                //                   0, PWM_POLARITY_NORMAL);
+                //    IN2_S = 0;
+                //}
+                //return;
             }
 
             IN1_S = 1;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                              0, PWM_POLARITY_NORMAL)){
+                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 1 failed to set PA7.\n");
-                // Reset the output of channel 1 to be LOW.
-                pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                              0, PWM_POLARITY_NORMAL);
-                IN1_S = 0;
-                return;
+                //// Reset the output of channel 1 to be LOW.
+                //pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+                //              0, PWM_POLARITY_NORMAL);
+                //IN1_S = 0;
+                //return;
             }
 
             IN2_S = 0;
@@ -259,21 +248,21 @@ static void _set_pwm(Dir direction, uint8_t power){
         case 2: // Motors rotating counter clockwise
             // Set IN1 to be LOW and PWM IN2.
             if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                              0, PWM_POLARITY_NORMAL)){
+                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 2 failed to set PA6.\n");
-                // Check to see if IN2 is set to high. If so, set it LOW.
-                if(IN2_S){
-                    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                                   0, PWM_POLARITY_NORMAL);
-                    IN2_S = 0;
-                }
-                return;
+                //// Check to see if IN2 is set to high. If so, set it LOW.
+                //if(IN2_S){
+                //    pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                //                   0, PWM_POLARITY_NORMAL);
+                //    IN2_S = 0;
+                //}
+                //return;
             }
 
             IN1_S = 0;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                              PWM_DUTY_CLK_CYCLES, PWM_POLARITY_NORMAL)){
+                              0, PWM_POLARITY_INVERTED)){
                 printk("_set_pwm :: Case 2 failed to set PA7.\n");
                 return;
             }
@@ -285,9 +274,9 @@ static void _set_pwm(Dir direction, uint8_t power){
                    "setting PA6 and PA7 to HIGH");
             // Set both IN1 and IN2 channels to be HIGH.
             pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
-                           PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL);
+                           0, PWM_POLARITY_INVERTED);
             pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
-                           PWM_PERIOD_CLK_CYCLES, PWM_POLARITY_NORMAL);
+                           0, PWM_POLARITY_INVERTED);
             IN1_S = 1;
             IN2_S = 1;
             break;
@@ -315,9 +304,9 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
 
         k_msleep(pwm_thread_sleep_ms);
 
-        _set_pwm(CCLKW, 20);
+        //_set_pwm(CCLKW, 20);
 
-        k_msleep(pwm_thread_sleep_ms);
+        //k_msleep(pwm_thread_sleep_ms);
 
         _set_pwm(STAT, 30);
 
