@@ -12,6 +12,7 @@
 #define PWM_THREAD_STACK_SIZE 1024 // Size of PWM thread on stack
 #define PWM_THREAD_PRIORITY 7 // PWM thread priority level
 #define PWM3_NODE_ID DT_NODELABEL(pwm3) // Node identifer for 'pwm3' node
+#define PWM_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
 
 
 // ============================================================================
@@ -31,8 +32,8 @@ static uint8_t PA7_S; // Indicates whether pin PA7 is being PWMed (ACTIVE LOW)
 
 static const uint32_t pwm_thread_sleep_ms = 500; // Sleep period for the PWM
                                                  // thread.
-static const uint32_t main_thread_sleep_ms = 500;
-
+static uint8_t pwm_ready = 0; // Flag that permits the starting of the PWM
+                              // thread.
 
 // ============================================================================
 // Local helper methods
@@ -62,8 +63,41 @@ K_THREAD_DEFINE(pwm_tid,                // Name of the thread
                 0);                     // Scheduling delay
 
 // ============================================================================
+// PWM message queue related
+// ============================================================================
+// Message queue variable
+struct k_msgq pwm_msgq;
+
+// PWM message queue buffer
+static char pwm_msgq_buffer[PWM_MSGQ_SIZE * sizeof(struct pwm_msgq_data)];
+
+// ============================================================================
 // Function definitions
 // ============================================================================
+
+/*
+    Brief: To be invoked before starting the pwm thread
+*/
+void pwm_init(){
+    // Check to see if PWM device is ready.
+    if(!device_is_ready(pwm3_dev))
+    {
+        printk("Cannot find PWM3 device!\n");
+        return;
+    }
+    else{
+        printk("PWM device found\n");
+    }
+
+    _init_pwm();
+
+    // Initialize message queue
+    k_msgq_init(&pwm_msgq, pwm_msgq_buffer, 
+                sizeof(struct pwm_msgq_data), PWM_MSGQ_SIZE);
+    
+    pwm_ready = 1;
+}
+
 /*
     Brief: PWM thread entry point intended to be invoked in main.
 
@@ -230,7 +264,7 @@ static void _set_pwm(Dir direction, uint8_t power){
                 //return;
             }
 
-            IN1_S = 1;
+            PA6_S = 1;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                               PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
@@ -242,7 +276,7 @@ static void _set_pwm(Dir direction, uint8_t power){
                 //return;
             }
 
-            IN2_S = 0;
+            PA7_S = 0;
             break;
         case 2: // Motors rotating counter clockwise
             // Set IN1 to be LOW and PWM IN2.
@@ -258,7 +292,7 @@ static void _set_pwm(Dir direction, uint8_t power){
                 //return;
             }
 
-            IN1_S = 0;
+            PA6_S = 0;
 
             if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                               0, PWM_POLARITY_INVERTED)){
@@ -266,7 +300,7 @@ static void _set_pwm(Dir direction, uint8_t power){
                 return;
             }
 
-            IN2_S = 1;
+            PA7_S = 1;
             break;
         default:
             printk("_set_pwm :: Case \'default\',"
@@ -276,8 +310,8 @@ static void _set_pwm(Dir direction, uint8_t power){
                            0, PWM_POLARITY_INVERTED);
             pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                            0, PWM_POLARITY_INVERTED);
-            IN1_S = 1;
-            IN2_S = 1;
+            PA6_S = 1;
+            PA7_S = 1;
             break;
     }
 

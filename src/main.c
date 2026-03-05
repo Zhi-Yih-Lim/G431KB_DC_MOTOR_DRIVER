@@ -1,24 +1,14 @@
 #include <zephyr/kernel.h>
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
-#include "pwm.h"
+#include "PWM/pwm.h"
+
+static const uint32_t main_thread_sleep_ms = 500;
 
 int main (void)
 {
-    //k_tid_t pwm_tid; // PWM thread ID.
 
-    // Check to see if PWM device is ready.
-    if(!device_is_ready(pwm3_dev))
-    {
-        printk("Cannot find PWM3 device!\n");
-        return 0;
-    }
-    else{
-        printk("PWM device found\n");
-    }
-
-    // Initialize PWM static variables
-    _init_pwm();
+    pwm_init();
 
     //// Start the PWM thread
     //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
