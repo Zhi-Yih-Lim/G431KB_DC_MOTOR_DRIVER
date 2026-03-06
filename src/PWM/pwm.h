@@ -7,6 +7,7 @@
 // Data types
 // ============================================================================
 typedef enum {STAT, CLKW, CCLKW} Dir; // Motor direction
+typedef enum {PWM_NORMAL = 0, ERR_UNKNOWN, SET_PWM_ERR} PWM_ERR; // Error Codes
 struct pwm_msgq_data{Dir direction;
                      uint8_t pwr; // 0 -> 100
                      uint16_t angle; // 0 -> 360
