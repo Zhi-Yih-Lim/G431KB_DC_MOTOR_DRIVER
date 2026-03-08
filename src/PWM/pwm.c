@@ -31,7 +31,10 @@ static uint8_t PA6_S; // Indicates whether pin PA6 is being PWMed (ACTIVE LOW)
 static uint8_t PA7_S; // Indicates whether pin PA7 is being PWMed (ACTIVE LOW)
 
 static const uint32_t pwm_thread_sleep_ms = 500; // Sleep period for the PWM
-                                                 // thread.
+                                                 // thread, determines how 
+                                                 // fast motion commands gets
+                                                 // updated.
+
 static uint8_t pwm_ready = 0; // Flag that permits the starting of the PWM
                               // thread.
 
@@ -113,26 +116,18 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
     int ret = 0;
     Dir pwm_dir = STAT;
 
+    struct pwm_msgq_data msgq_data;
+
     // Start off the PWM in braking mode
     _set_pwm(pwm_dir, 0);        
 
-    while(1){
-        // Check the message queue for any changes to motor's direction
+    while(!ret){
+        // Fetch a data item from the message queue.
+        k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
 
-        // Set the the PWM 
-
-        // Sleep the thread to relinquish resource for other threads
-        //k_msleep(pwm_thread_sleep_ms);
-
-        _set_pwm(CLKW, 50);
-
-        k_msleep(pwm_thread_sleep_ms);
-
-        //_set_pwm(CCLKW, 20);
-
-        //k_msleep(pwm_thread_sleep_ms);
-
-        _set_pwm(STAT, 30);
+        ret = (int)_set_pwm(msgq_data.direction, 
+                            msgq_data.power,
+                            msgq_data.angle);
 
         k_msleep(pwm_thread_sleep_ms);
  
@@ -209,7 +204,7 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
 */
 static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
-    ARG_UNUSED(angle); // To be implemented later on. TODO
+    ARG_UNUSED(angle); // TODO: To be implemented with qdec.
 
     uint8_t _pwr = 0;
     static Dir _dir = 0;     
@@ -376,15 +371,15 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
             break;
 
         default:
-            printk("_set_pwm :: Case \'default\',"
-                   "setting PA6 and PA7 to HIGH");
-            // Set both IN1 and IN2 channels to be HIGH.
+            // Turn PWM off to both PA6 and PA7 to keep signals 
+            // of both channels high.
             pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
                            0, PWM_POLARITY_INVERTED);
             pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                            0, PWM_POLARITY_INVERTED);
-            PA6_S = 1;
-            PA7_S = 1;
+            PA6_S = 0;
+            PA7_S = 0;
+            _dir = 0;
             break;
     }
 

@@ -3,7 +3,37 @@
 #include <zephyr/device.h>
 #include "PWM/pwm.h"
 
+// ============================================================================
+// MACROS
+// ============================================================================
+#define ERR_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
+
+// ============================================================================
+// Custom data types
+// ============================================================================
+typedef enum {PWM = 0, QDEC, CAN, RGB} m_thread_id; // ID to identify the
+                                                    // running threads.
+
+// ============================================================================
+// Local variables
+// ============================================================================
 static const uint32_t main_thread_sleep_ms = 500;
+
+
+// ============================================================================
+// Error message queue related
+// ============================================================================
+// Data item for Error message queue
+struct err_msgq_data{m_thread_id thread;
+                     uint32_t err_no; // Refer to error enums of different 
+                                      // threads.
+                    };
+
+// Message queue variable
+struct k_msgq err_msgq;
+
+// Error message queue buffer
+static char err_msgq_buffer[ERR_MSGQ_SIZE * sizeof(struct err_msgq_data)];
 
 int main (void)
 {
