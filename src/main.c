@@ -37,7 +37,9 @@ static char err_msgq_buffer[ERR_MSGQ_SIZE * sizeof(struct err_msgq_data)];
 
 int main (void)
 {
-
+    // MAIN LOOP SHOULD ONLY BE RESPONSIBLE FOR THREAD INIT AND PERIOD ERROR 
+    // CHECKING !
+    
     pwm_init();
 
     //// Start the PWM thread

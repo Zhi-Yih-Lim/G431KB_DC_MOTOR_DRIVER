@@ -5,6 +5,7 @@
 #include <zephyr/drivers/pwm.h>
 #include <math.h>
 #include "pwm.h"
+#include "../err_msgq.h"
 
 // ============================================================================
 // MACROS
@@ -117,6 +118,7 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
     Dir pwm_dir = STAT;
 
     struct pwm_msgq_data msgq_data;
+    struct err_msgq_data err_msgq_data;
 
     // Start off the PWM in braking mode
     _set_pwm(pwm_dir, 0);        
@@ -130,8 +132,16 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
                             msgq_data.angle);
 
         k_msleep(pwm_thread_sleep_ms);
- 
     }
+
+    // Set relevant thread id and error number.
+    err_msgq_data.thread = PWM;
+    err_msgq_data.err_no = ret;
+
+    k_msgq_put(&err_msgq, &err_msgq_data, K_NO_WAIT);
+
+    // (!) PWM thread termintates by returning.
+
 }
 // ============================================================================
 // Internal functions definitions
@@ -207,27 +217,21 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
     ARG_UNUSED(angle); // TODO: To be implemented with qdec.
 
     uint8_t _pwr = 0;
-    static Dir _dir = 0;     
+    static Dir _dir = 0; // To track previous rotation state.
 
     // Set a cap on the maximum power
     if(power > 100){
         printk("_set_pwm :: Power set to be above 100, capping power to 100.\n");
         _pwr = 100;
     }
+    else if(power < 0){
+        printk("_set_pwm :: Power set to be below 100, setting power to 0.\n");
+        _pwr = 0;
+    }
     else{
         _pwr = power;
     }
 
-    //// Set the motor to be stationary in the event of an undocumented
-    //// 'Dir' input.
-    //if(direction < 0 || direction > 2){
-    //    printk("_set_pwm :: Direction set undefined, stopping the motor.\n");
-    //    _dir = 0;
-    //}
-    //else{
-    //    _dir = direction;
-    //}
-    
     // Calculate he number of signal high clock cycles based.
     PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
                                                    _pwr);
@@ -382,5 +386,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
             _dir = 0;
             break;
     }
+
+    // Indicate successful pwm setting
+    return 0;
 
 }
