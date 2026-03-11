@@ -2,17 +2,12 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include "PWM/pwm.h"
+#include "err_msgq.h"
 
 // ============================================================================
 // MACROS
 // ============================================================================
 #define ERR_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
-
-// ============================================================================
-// Custom data types
-// ============================================================================
-typedef enum {PWM = 0, QDEC, CAN, RGB} m_thread_id; // ID to identify the
-                                                    // running threads.
 
 // ============================================================================
 // Local variables
@@ -23,22 +18,19 @@ static const uint32_t main_thread_sleep_ms = 500;
 // ============================================================================
 // Error message queue related
 // ============================================================================
-// Data item for Error message queue
-struct err_msgq_data{m_thread_id thread;
-                     uint32_t err_no; // Refer to error enums of different 
-                                      // threads.
-                    };
-
 // Message queue variable
 struct k_msgq err_msgq;
 
-// Error message queue buffer
-static char err_msgq_buffer[ERR_MSGQ_SIZE * sizeof(struct err_msgq_data)];
+// Initialize error message queue
+K_MSGQ_DEFINE(err_msgq, sizeof(struct err_msgq_data), ERR_MSGQ_SIZE, 1);
 
 int main (void)
 {
     // MAIN LOOP SHOULD ONLY BE RESPONSIBLE FOR THREAD INIT AND PERIOD ERROR 
     // CHECKING !
+
+    struct err_msgq_data err_data;
+    int ret = 0;
     
     pwm_init();
 
@@ -56,7 +48,27 @@ int main (void)
     //                         );
 
     while(1){
-        printk("Entered main loop.\n");
+        printk("Main loop.\n");
+
+        // Check to see if there are any errors in the error message queue
+        ret = k_msgq_get(&err_msgq, &err_data, K_NO_WAIT);
+
+        if(!ret){
+            switch(err_data.thread){
+                case PWM:
+                    printk("PWM thread error %d.\n", err_data.err_no);
+                    // TODO: Send data to main mcu via CAN.
+                    // TODO: Re-initialize the PWM thread.
+                    break;
+                default:
+                    printk("Unknown thread id of %d with err no of %d.\n",
+                           err_data.thread,
+                           err_data.err_no);
+                    // TODO: Send data to main mcu via CAN.
+                    break; 
+            }
+        }
+
         k_msleep(main_thread_sleep_ms);
     }
        

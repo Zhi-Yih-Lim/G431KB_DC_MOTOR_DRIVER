@@ -95,7 +95,7 @@ void pwm_init(){
 
     _init_pwm();
 
-    // Initialize message queue
+    // Initialize PWM message queue
     k_msgq_init(&pwm_msgq, pwm_msgq_buffer, 
                 sizeof(struct pwm_msgq_data), PWM_MSGQ_SIZE);
     
@@ -121,7 +121,7 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
     struct err_msgq_data err_msgq_data;
 
     // Start off the PWM in braking mode
-    _set_pwm(pwm_dir, 0);        
+    _set_pwm(pwm_dir, 0, 0);        
 
     while(!ret){
         // Fetch a data item from the message queue.
@@ -244,7 +244,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
             if(_dir == 1){ // Clockwise rotation, PA7 PWMed (Active Low)
                 if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 0, _dir == 1," +
+                    printk("pwm :: _set_pwm -> Case 0, _dir == 1," 
                            " failed to disable PA7.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -257,7 +257,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
             else if(_dir == 2){ // C-clockwise rotation, PA6 PWMed (Active Low)
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 0, _dir == 2," +
+                    printk("pwm :: _set_pwm -> Case 0, _dir == 2," 
                            " failed to disable PA6.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -279,7 +279,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // PWM PA7 to the desired duty cycle
                 if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 0," +
+                    printk("pwm :: _set_pwm -> Case 1, _dir == 0," 
                            " failed to set PA7.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -292,7 +292,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // Issue stop command to PA6 and wait for one PWM period.
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 2", +
+                    printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
                            " failed to disable PA6.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -308,7 +308,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // PWM PA7 to the desired duty cycle.
                 if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 2," +
+                    printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
                            " failed to set PA7.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -330,7 +330,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // PWM PA6 to the desired duty cycle
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 0," +
+                    printk("pwm :: _set_pwm -> Case 2, _dir == 0," 
                            " failed to set PA6.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -343,7 +343,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // Issue stop command to PA7 and wait for one PWM period.
                 if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 1", +
+                    printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
                            " failed to disable PA7.\n");
                     
                     // TODO: Cut power supply to motors ??
@@ -359,7 +359,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // PWM PA6 to the desired duty cycle.
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 1," +
+                    printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
                            " failed to set PA6.\n");
                     
                     // TODO: Cut power supply to motors ??
