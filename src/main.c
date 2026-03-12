@@ -32,7 +32,11 @@ int main (void)
     struct err_msgq_data err_data;
     int ret = 0;
     
+    struct pwm_msgq_data pwm_data;
+
     pwm_init();
+
+    pwm_thread_start(NULL, NULL, NULL);
 
     //// Start the PWM thread
     //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
@@ -68,6 +72,53 @@ int main (void)
                     break; 
             }
         }
+
+        printk("main -> Setting CLKW direction at 20%% power. \n");
+
+        pwm_data.direction = CLKW;
+        pwm_data.power = 20;
+        pwm_data.angle = 0;
+
+        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+
+        k_msleep(main_thread_sleep_ms);
+        
+        printk("main -> Setting CCLKW direction at 40%% power. \n");
+
+        pwm_data.direction = CCLKW;
+        pwm_data.power = 40;
+        pwm_data.angle = 0;
+
+        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+
+        k_msleep(main_thread_sleep_ms);
+
+        printk("main -> Setting STAT direction at 40%% power. \n");
+
+        pwm_data.direction = STAT;
+        pwm_data.power = 40;
+        pwm_data.angle = 0;
+
+        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+
+        k_msleep(main_thread_sleep_ms);
+
+        printk("main -> Setting CCLKW direction at 60%% power. \n");
+
+        pwm_data.direction = CCLKW;
+        pwm_data.power = 60;
+        pwm_data.angle = 0;
+
+        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+
+        k_msleep(main_thread_sleep_ms);
+
+        printk("main -> Setting CLKW direction at 80%% power. \n");
+        pwm_data.direction = CLKW;
+        pwm_data.power = 80;
+        pwm_data.angle = 0;
+
+        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
 
         k_msleep(main_thread_sleep_ms);
     }

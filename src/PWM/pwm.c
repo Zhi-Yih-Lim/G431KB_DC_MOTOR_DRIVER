@@ -123,9 +123,16 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
     // Start off the PWM in braking mode
     _set_pwm(pwm_dir, 0, 0);        
 
+    printk("pwm_thread_start :: Entering while loop.\n");
+
     while(!ret){
         // Fetch a data item from the message queue.
         k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
+
+        printk("pwm_thread_start :: Data fetched from PWM msgq with contents"
+               "direction = %d, power = %d, and angle = %d",
+               msgq_data.direction, msgq_data.power,
+               msgq_data.angle);
 
         ret = (int)_set_pwm(msgq_data.direction, 
                             msgq_data.power,
@@ -252,6 +259,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                     return SET_PWM_ERR;
                 }
 
+                printk("_set_pwm -> Case 0, _dir == 1, successfully set.\n");
+
                 PA7_S = 0;
             }
             else if(_dir == 2){ // C-clockwise rotation, PA6 PWMed (Active Low)
@@ -264,6 +273,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 0, _dir == 2, successfully set.\n");
 
                 PA6_S = 0;
             }
@@ -286,6 +297,9 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 1, _dir == 0, successfully set.\n");
+                
             }
             else if(_dir == 2){// Counter clockwise
                 // PA6 is being PWMed and PA7 is not.
@@ -299,6 +313,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 1, _dir == 2, entering 1 cycle wait.\n");
 
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
@@ -315,6 +331,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 1, _dir == 2, successfully set.\n");
             }
 
             PA7_S = 1;
@@ -337,6 +355,9 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 2, _dir == 0, successfully set.\n");
+
             }
             else if(_dir == 1){// Currently clockwise
                 // PA7 is being PWMed and PA6 is not.
@@ -350,6 +371,8 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 2, _dir == 1, entering 1 cycle wait.\n");
 
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
@@ -366,6 +389,9 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                     return SET_PWM_ERR;
                 }
+
+                printk("_set_pwm -> Case 2, _dir == 1, successfully set.\n");
+
             }
 
             PA6_S = 1;
@@ -375,6 +401,7 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
             break;
 
         default:
+            printk("_set_pwm -> Default Case.\n");
             // Turn PWM off to both PA6 and PA7 to keep signals 
             // of both channels high.
             pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES, 
