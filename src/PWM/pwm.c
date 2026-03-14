@@ -60,7 +60,7 @@ extern const k_tid_t pwm_tid;
 // Statically defining and initializing a thread.
 K_THREAD_DEFINE(pwm_tid,                // Name of the thread
                 PWM_THREAD_STACK_SIZE,  // Stack size of thread in bytes 
-                pwm_thread_start,       // Thread entry function
+                pwm_thread_entry,       // Thread entry function
                 NULL, NULL, NULL,       // arg_1, arg_2, and arg_3
                 PWM_THREAD_PRIORITY,    // Thread priority 
                 0,                      // Thread options
@@ -107,10 +107,10 @@ void pwm_init(){
 
     @param arg_1 -> 3: Optional arguments to be passed into the thread.
 */
-void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
+void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
     
     while(!pwm_ready){
-        printk("pwm_thread_start :: PWM device is not ready. \n");
+        printk("pwm_thread_entry :: PWM device is not ready. \n");
         k_msleep(1000);
     }
 
@@ -123,13 +123,13 @@ void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3){
     // Start off the PWM in braking mode
     _set_pwm(pwm_dir, 0, 0);        
 
-    printk("pwm_thread_start :: Entering while loop.\n");
+    printk("pwn_thread_entry :: Entering while loop.\n");
 
     while(!ret){
         // Fetch a data item from the message queue.
         k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
 
-        printk("pwm_thread_start :: Data fetched from PWM msgq with contents"
+        printk("pwn_thread_entry :: Data fetched from PWM msgq with contents"
                "direction = %d, power = %d, and angle = %d",
                msgq_data.direction, msgq_data.power,
                msgq_data.angle);
@@ -301,7 +301,23 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 printk("_set_pwm -> Case 1, _dir == 0, successfully set.\n");
                 
             }
-            else if(_dir == 2){// Counter clockwise
+            else if(_dir == 1){// Clockwise
+                // PA7 is being PWMed and PA6 is not.
+                // No direction change necessary but either power or angle
+                // change.
+                if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                               PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
+                    printk("pwm :: _set_pwm -> Case 1, _dir == 1," 
+                           " failed to set PA7.\n");
+                    
+                    // TODO: Cut power supply to motors ??
+
+                    return SET_PWM_ERR;
+                }
+
+                printk("_set_pwm -> Case 1, _dir == 1, successfully set.\n");
+            }
+            else{// Counter clockwise
                 // PA6 is being PWMed and PA7 is not.
                 // Issue stop command to PA6 and wait for one PWM period.
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
@@ -392,6 +408,20 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                 printk("_set_pwm -> Case 2, _dir == 1, successfully set.\n");
 
+            }
+            else{// Currently counter-clockwise
+                // PA6 is being PWMed and PA7 is not.
+                // No direction change. Either power or angle change.
+                if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                               PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
+                    printk("pwm :: _set_pwm -> Case 2, _dir == 2," 
+                           " failed to set PA6.\n");
+                    
+                    // TODO: Cut power supply to motors ??
+
+                    return SET_PWM_ERR;
+                }
+                printk("_set_pwm -> Case 2, _dir == 2, successfully set.\n");
             }
 
             PA6_S = 1;

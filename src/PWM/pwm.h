@@ -26,7 +26,7 @@ extern struct k_msgq err_msgq; // Error message queue defined in main to put
 // Functions
 // ============================================================================
 void pwm_init(); // PWM initializer function
-void pwm_thread_start(void *arg_1, void *arg_2, void *arg_3); // Thread entry
+void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3); // Thread entry
                                                               // point.
 
 #endif

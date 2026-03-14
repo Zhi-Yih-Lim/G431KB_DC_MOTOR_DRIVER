@@ -34,9 +34,8 @@ int main (void)
     
     struct pwm_msgq_data pwm_data;
 
+    printk("Invoking pwm_init().\n");
     pwm_init();
-
-    pwm_thread_start(NULL, NULL, NULL);
 
     //// Start the PWM thread
     //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
