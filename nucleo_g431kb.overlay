@@ -1,4 +1,7 @@
+/* Pins pa2, pa3, pb8, pa9 and pa8 are all used up in nucleo_g431kb.dts */
+
 &pinctrl {
+	/* Pulling up both PWM pins as PWM set to function on active low. */
 	tim3_ch1_pa6_pullup: tim3_ch1_pa6_pullup{
 		pinmux = <STM32_PINMUX('A', 6, AF2)>;
 		bias-pull-up;
@@ -20,5 +23,13 @@
 		/* Using TIM3 (16-bit) independent channel 2 connected to pin pa7 on the board for IN2 on DRV8871*/
 		pinctrl-0 = <&tim3_ch1_pa6_pullup &tim3_ch2_pa7_pullup>;
 		pinctrl-names = "default";
+	};
+	qdec3: qdec{
+		status = "okay";
+		pinctrl-0 = <&tim3_ch3_pb0 &tim3_ch4_pb7>; // Both on CN4 side.
+		pinctrl-names = "default";
+		st,encoder-mode = <0x3>; // Mode 3 uses both A and B qdec channels from the motor.
+		st,input-filter-level = <15>; // Fsampling = F_clk/32, N=8
+		st,counts-per-revolution = <2448>; // Motor's 12PPR, 1:51 gear ratio and x4 pulses of Mode 3 = 2448 
 	};
 };
