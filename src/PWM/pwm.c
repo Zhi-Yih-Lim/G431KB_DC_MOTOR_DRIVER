@@ -28,8 +28,6 @@ static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the
 static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
 static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
                                     // duty cycle.
-static uint8_t PA6_S; // Indicates whether pin PA6 is being PWMed (ACTIVE LOW)
-static uint8_t PA7_S; // Indicates whether pin PA7 is being PWMed (ACTIVE LOW)
 
 static const uint32_t pwm_thread_sleep_ms = 500; // Sleep period for the PWM
                                                  // thread, determines how 
@@ -123,14 +121,14 @@ void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
     // Start off the PWM in braking mode
     _set_pwm(pwm_dir, 0, 0);        
 
-    printk("pwn_thread_entry :: Entering while loop.\n");
+    printk("pwm_thread_entry :: Entering while loop.\n");
 
     while(!ret){
         // Fetch a data item from the message queue.
         k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
 
         printk("pwn_thread_entry :: Data fetched from PWM msgq with contents"
-               "direction = %d, power = %d, and angle = %d",
+               "direction = %d, power = %d, and angle = %d.\n",
                msgq_data.direction, msgq_data.power,
                msgq_data.angle);
 
@@ -162,8 +160,6 @@ static void _init_pwm(void){
                                                         DRV8871_FREQ);
 
     printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
-
-    PA6_S = PA7_S = 0;
 
 }
 
@@ -224,22 +220,18 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
     ARG_UNUSED(angle); // TODO: To be implemented with qdec.
 
     uint8_t _pwr = 0;
-    static Dir _dir = 0; // To track previous rotation state.
+    static Dir _dir = STAT; // To track previous rotation state.
 
     // Set a cap on the maximum power
     if(power > 100){
         printk("_set_pwm :: Power set to be above 100, capping power to 100.\n");
         _pwr = 100;
     }
-    else if(power < 0){
-        printk("_set_pwm :: Power set to be below 100, setting power to 0.\n");
-        _pwr = 0;
-    }
     else{
         _pwr = power;
     }
 
-    // Calculate he number of signal high clock cycles based.
+    // Calculate the number of signal high clock cycles based.
     PWM_DUTY_CLK_CYCLES = _calc_pwm_duty_clk_cycles(PWM_PERIOD_CLK_CYCLES, 
                                                    _pwr);
 
@@ -261,7 +253,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                 printk("_set_pwm -> Case 0, _dir == 1, successfully set.\n");
 
-                PA7_S = 0;
             }
             else if(_dir == 2){ // C-clockwise rotation, PA6 PWMed (Active Low)
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
@@ -276,7 +267,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                 printk("_set_pwm -> Case 0, _dir == 2, successfully set.\n");
 
-                PA6_S = 0;
             }
 
             _dir = 0;
@@ -335,8 +325,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
 
-                PA6_S = 0;
-
                 // PWM PA7 to the desired duty cycle.
                 if(pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
@@ -350,8 +338,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
 
                 printk("_set_pwm -> Case 1, _dir == 2, successfully set.\n");
             }
-
-            PA7_S = 1;
 
             _dir = 1;
             
@@ -393,8 +379,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
 
-                PA7_S = 0;
-
                 // PWM PA6 to the desired duty cycle.
                 if(pwm_set_cycles(pwm3_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
@@ -424,8 +408,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                 printk("_set_pwm -> Case 2, _dir == 2, successfully set.\n");
             }
 
-            PA6_S = 1;
-
             _dir = 2;
 
             break;
@@ -438,13 +420,11 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
                            0, PWM_POLARITY_INVERTED);
             pwm_set_cycles(pwm3_dev, 2, PWM_PERIOD_CLK_CYCLES,
                            0, PWM_POLARITY_INVERTED);
-            PA6_S = 0;
-            PA7_S = 0;
             _dir = 0;
-            break;
+            return INVALID_DIR_ERR;
     }
 
     // Indicate successful pwm setting
-    return 0;
+    return PWN_NORMAL;
 
 }
