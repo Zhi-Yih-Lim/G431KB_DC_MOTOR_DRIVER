@@ -20,7 +20,7 @@
 // Locally global variables
 // ============================================================================
 // Get device pointer from node identifier
-static const struct device *const pwm3_dev = DEVICE_DT_GET(PWM3_NODE_ID);
+static const struct device *pwm3_dev = DEVICE_DT_GET(PWM3_NODE_ID);
 
 static const uint32_t CLK_FREQ = 170000000; // Clock frequency of timer 3
 static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the 
@@ -425,6 +425,6 @@ static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
     }
 
     // Indicate successful pwm setting
-    return PWN_NORMAL;
+    return PWM_NORMAL;
 
 }

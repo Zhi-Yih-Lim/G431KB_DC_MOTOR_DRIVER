@@ -1,5 +1,5 @@
 #include <zephyr/kernel.h>
-#include <zephyr/driver/counter.h> // To use Zephyr's counter interface
+#include <zephyr/drivers/counter.h> // To use Zephyr's counter interface
 #include <zephyr/sys/printk.h>
 #include "qdec.h"
 
@@ -12,8 +12,8 @@ static int qdec_counter_ready = 0;
 
 
 // Get device pointer from node identifier
-static const struct device *const qdec_cntr_dev = DEVICE_DT_GET(
-                                                    QDEC_COUNTER_NODE_ID);
+static const struct device *qdec_cntr_dev = DEVICE_DT_GET(
+                                                QDEC_COUNTER_NODE_ID);
 
 // Counter callback (ISR), stops execution of all other threads
 // - including main - and executes ISR.
@@ -43,15 +43,15 @@ void qdec_counter_init(uint32_t readout_period_us){
     }
 
     // Initialize a 'struct counter_top_cfg'.
-    struct counter_top_cfg counter_cfg{
-        .ticks = couter_us_to_ticks(&qdec_cntr_dev, readout_period_us),
+    struct counter_top_cfg counter_cfg = {
+        .ticks = counter_us_to_ticks(qdec_cntr_dev, readout_period_us),
         .callback = counter_isr,
         .user_data = NULL, // TODO: Pass in reference to work queue ?
         .flags = 0 
     };
 
     // Initialize a top counter
-    ret = counter_set_top_value(&qdec_cntr_dev, &counter_cfg);
+    ret = counter_set_top_value(qdec_cntr_dev, &counter_cfg);
 
     if(ret < 0){
         printk("qdec_counter_init -> Error (%d): Failed to start counter\r\n", 
@@ -60,13 +60,17 @@ void qdec_counter_init(uint32_t readout_period_us){
     }
 
     qdec_counter_ready = 1;
+
+    printk("qdec_counter_init -> "
+           "Set counter top value of %d micro-seconds.\r\n",
+           readout_period_us);
 }
 
 void start_qdec_counter(){
     int ret;
 
     if(qdec_counter_ready){
-        ret = counter_start(&qdec_cntr_dev);
+        ret = counter_start(qdec_cntr_dev);
         if(ret < 0){
             printk("start_counter -> Error (%d): Failed to start counter\r\n", 
                 ret);
@@ -78,11 +82,12 @@ void start_qdec_counter(){
     else{
         printk("start_counter -> Failed to start counter as "
                "QDEC Counter is not ready\r\n");
+        return;
     }
 }
 
 void stop_qdec_counter(){
-    counter_stop(&qdec_cntr_dev);
+    counter_stop(qdec_cntr_dev);
 
     qdec_counter_ready = 0;
 }

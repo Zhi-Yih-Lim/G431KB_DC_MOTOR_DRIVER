@@ -7,5 +7,5 @@ project(G431KB_PWM_APP)
 target_sources(app PRIVATE 
 	src/main.c
 	src/PWM/pwm.c
-	src/QDEC/qdec.c
+	src/QDEC/qdec_counter.c
 )

@@ -2,6 +2,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include "PWM/pwm.h"
+#include "QDEC/qdec_counter.h"
 #include "err_msgq.h"
 
 // ============================================================================
@@ -36,6 +37,8 @@ int main (void)
 
     printk("Invoking pwm_init().\n");
     pwm_init();
+    printk("Invoking qdec_counter_init(). \n");
+    qdec_counter_init(1000000);
 
     //// Start the PWM thread
     //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
@@ -49,6 +52,9 @@ int main (void)
     //                          0,                   // Thread options
     //                          K_NO_WAIT            // Delay b4 starting thread
     //                         );
+
+    // Start the qdec counter
+    start_qdec_counter();
 
     while(1){
         printk("Main loop.\n");
