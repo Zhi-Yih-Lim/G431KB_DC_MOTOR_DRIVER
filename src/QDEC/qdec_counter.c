@@ -15,6 +15,16 @@ static int qdec_counter_ready = 0;
 static const struct device *qdec_cntr_dev = DEVICE_DT_GET(
                                                 QDEC_COUNTER_NODE_ID);
 
+static void get_angular_displacement(struct k_work *item){
+    printk("get_angular_displacement -> "
+           "Invoke function to read angular displacement. \r\n");
+}
+
+// Angular displacement work item to be placed on the system workqueue
+// by the counter isr.
+K_WORK_DEFINE(angular_readout_work,
+              get_angular_displacement);
+
 // Counter callback (ISR), stops execution of all other threads
 // - including main - and executes ISR.
 // The signature of the ISR follows the "counter_top_callback_t"
@@ -22,10 +32,9 @@ static const struct device *qdec_cntr_dev = DEVICE_DT_GET(
 static void counter_isr(const struct device *dev,
                         void *user_data){
     // When the ISR is invoked, we want to add a work item 
-    // to the work queue to readout the angular displacement
+    // to the system work queue to readout the angular displacement
     // from the qdec.
-    printk("counter_isr -> Add angular displacement acquisition"
-           " to work queue.\n");                
+    k_work_submit(&angular_readout_work);
 }
 
 void qdec_counter_init(uint32_t readout_period_us){
