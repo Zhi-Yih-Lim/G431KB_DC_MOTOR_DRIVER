@@ -2,6 +2,7 @@
 #include <zephyr/drivers/counter.h> // To use Zephyr's counter interface
 #include <zephyr/sys/printk.h>
 #include "qdec.h"
+#include "qdec_counter.h"
 
 // Flag to see if the qdec counter device has been properly set up.
 // Failure prevents counter from starting.
@@ -16,8 +17,7 @@ static const struct device *qdec_cntr_dev = DEVICE_DT_GET(
                                                 QDEC_COUNTER_NODE_ID);
 
 static void get_angular_displacement(struct k_work *item){
-    printk("get_angular_displacement -> "
-           "Invoke function to read angular displacement. \r\n");
+    qdec_read_angle();
 }
 
 // Angular displacement work item to be placed on the system workqueue
@@ -44,11 +44,11 @@ void qdec_counter_init(uint32_t readout_period_us){
     // Check to see if timer device is ready
     if(!device_is_ready(qdec_cntr_dev))
     {
-        printk("Cannot find QDEC Counter device! \n");
+        printk("Cannot find QDEC Counter device! \r\n");
         return;
     }
     else{
-        printk("QDEC Counter device found. \n");
+        printk("QDEC Counter device found. \r\n");
     }
 
     // Initialize a 'struct counter_top_cfg'.
@@ -67,6 +67,9 @@ void qdec_counter_init(uint32_t readout_period_us){
                ret);
         return;
     }
+
+    // Initialize the qdec device
+    qdec_init();
 
     qdec_counter_ready = 1;
 
