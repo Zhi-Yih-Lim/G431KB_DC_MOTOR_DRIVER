@@ -2,7 +2,7 @@
 #include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include "PWM/pwm.h"
-#include "QDEC/qdec_counter.h"
+#include "QDEC/qdec.h"
 #include "err_msgq.h"
 
 // ============================================================================

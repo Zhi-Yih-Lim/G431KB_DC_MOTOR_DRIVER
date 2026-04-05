@@ -1,38 +1,44 @@
 /* Pins pa2, pa3, pb8, pa9 and pa8 are all used up in nucleo_g431kb.dts */
-/* Timer #4 is being used in nucleo_g432kb.dts for pwm */
+/* Timer #4 is being used in nucleo_g432kb.dts for pwm on pb8*/
 
 &pinctrl {
 	/* Pulling up both PWM pins as PWM set to function on active low. */
-	tim3_ch1_pa6_pullup: tim3_ch1_pa6_pullup{
-		pinmux = <STM32_PINMUX('A', 6, AF2)>;
+	tim2_ch1_pa0_pullup: tim2_ch1_pa0_pullup{
+		pinmux = <STM32_PINMUX('A', 0, AF1)>;
 		bias-pull-up;
 	};
 	
-	tim3_ch2_pa7_pullup: tim3_ch2_pa7_pullup{
-		pinmux = <STM32_PINMUX('A', 7, AF2)>;
+	tim2_ch2_pa1_pullup: tim2_ch2_pa1_pullup{
+		pinmux = <STM32_PINMUX('A', 1, AF1)>;
 		bias-pull-up;
 	};
+	
 };
 
 
-
+/* timer3 used for qdec input from motors */
 &timers3 {
         status = "okay";
-	pwm3: pwm{
-		status = "okay";
-		/* Using TIM3 (16-bit) independent channel 1 connected to pin pa6 on the board for IN1 on DRV8871*/
-		/* Using TIM3 (16-bit) independent channel 2 connected to pin pa7 on the board for IN2 on DRV8871*/
-		pinctrl-0 = <&tim3_ch1_pa6_pullup &tim3_ch2_pa7_pullup>;
-		pinctrl-names = "default";
-	};
 	qdec3: qdec{
 		status = "okay";
-		pinctrl-0 = <&tim3_ch3_pb0 &tim3_ch4_pb7>; // PB0 and PB7 both on CN4 side.
+		pinctrl-0 = <&tim3_ch1_pa6 &tim3_ch2_pa7>; // PA6 and PA7 both on CN3 side.
 		pinctrl-names = "default";
 		st,encoder-mode = <0x3>; // Mode 3 uses both A and B qdec channels from the motor.
 		st,input-filter-level = <15>; // Fsampling = F_clk/32, N=8
 		st,counts-per-revolution = <2448>; // Motor's 12PPR, 1:51 gear ratio and x4 pulses of Mode 3 = 2448 
 	};
+};
+
+/* timer 2 used for pwm generation for motors */
+&timers2 {
+        status = "okay";
+        pwm2: pwm{
+                status = "okay";
+                /* Using TIM2 (32-bit) independent channel 1 connected to pin pa0 on the board for IN1 on DRV8871*/
+		/* Using TIM2 (32-bit) independent channel 2 connected to pin pa1 on the board for IN2 on DRV8871*/
+		pinctrl-0 = <&tim2_ch1_pa0_pullup &tim2_ch2_pa1_pullup>;
+		pinctrl-names = "default";
+        };
 };
 
 /* Modify timer4 to enable counter for qdec interrupt generation */
