@@ -82,7 +82,6 @@ int main (void)
 
         pwm_data.direction = CLKW;
         pwm_data.power = 100;
-        pwm_data.angle = 0;
 
         k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
 

@@ -38,6 +38,11 @@ static uint8_t pwm_ready = 0; // Flag that permits the starting of the PWM
                               // thread.
 
 // ============================================================================
+// Forward declarations
+// ============================================================================
+static void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3);
+
+// ============================================================================
 // Local helper methods
 // ============================================================================
 static uint32_t _calc_pwm_period_clk_cycles(uint32_t clk_freq, 
@@ -46,16 +51,17 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                                           uint8_t on_percent);
 static void _init_pwm(void);
 
-static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle);
+static PWM_ERR _set_pwm(Dir direction, uint8_t power);
 
 
 // ============================================================================
 // PWM thread related
 // ============================================================================
 // PWM thread id to be used in 'K_THREAD_DEFINE' below.
-extern const k_tid_t pwm_tid;
+const k_tid_t pwm_tid;
 
 // Statically defining and initializing a thread.
+// The following command spawns a thread that starts immediately.
 K_THREAD_DEFINE(pwm_tid,                // Name of the thread
                 PWM_THREAD_STACK_SIZE,  // Stack size of thread in bytes 
                 pwm_thread_entry,       // Thread entry function
@@ -66,6 +72,7 @@ K_THREAD_DEFINE(pwm_tid,                // Name of the thread
 
 // ============================================================================
 // PWM message queue related
+// (!) Message queue to be exposed to PD-Controller thread.
 // ============================================================================
 // Message queue variable
 struct k_msgq pwm_msgq;
@@ -101,11 +108,11 @@ void pwm_init(){
 }
 
 /*
-    Brief: PWM thread entry point intended to be invoked in main.
+    Brief: Funtion to be invoked when the PWM thread starts.
 
     @param arg_1 -> 3: Optional arguments to be passed into the thread.
 */
-void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
+static void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
     
     while(!pwm_ready){
         printk("pwm_thread_entry :: PWM device is not ready. \n");
@@ -119,7 +126,7 @@ void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
     struct err_msgq_data err_msgq_data;
 
     // Start off the PWM in braking mode
-    _set_pwm(pwm_dir, 0, 0);        
+    _set_pwm(pwm_dir, 0);        
 
     printk("pwm_thread_entry :: Entering while loop.\n");
 
@@ -128,13 +135,11 @@ void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
         k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
 
         printk("pwn_thread_entry :: Data fetched from PWM msgq with contents"
-               "direction = %d, power = %d, and angle = %d.\n",
-               msgq_data.direction, msgq_data.power,
-               msgq_data.angle);
+               "direction = %d and power = %d.\n",
+               msgq_data.direction, msgq_data.power);
 
         ret = (int)_set_pwm(msgq_data.direction, 
-                            msgq_data.power,
-                            msgq_data.angle);
+                            msgq_data.power);
 
         k_msleep(pwm_thread_sleep_ms);
     }
@@ -213,11 +218,8 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
     @param direction: The intended direction of rotation of the motor 
                       (when viewed from the front side exposed shaft).
     @param power: The power of the motor (0-100).
-    @param angle: The target angular displacement (0-360)
 */
-static PWM_ERR _set_pwm(Dir direction, uint8_t power, uint16_t angle){
-
-    ARG_UNUSED(angle); // TODO: To be implemented with qdec.
+static PWM_ERR _set_pwm(Dir direction, uint8_t power){
 
     uint8_t _pwr = 0;
     static Dir _dir = STAT; // To track previous rotation state.

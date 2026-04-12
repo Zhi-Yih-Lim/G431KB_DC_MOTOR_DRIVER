@@ -13,8 +13,11 @@
 // ============================================================================
 // Custom data types
 // ============================================================================
-typedef enum {PWM = 0, QDEC, CAN, RGB} m_thread_id; // ID to identify the
-                                                    // running threads.
+typedef enum {PWM = 0, 
+              QDEC, 
+              CAN, 
+              RGB, 
+              PD_CNTRL} m_thread_id; // ID to identify the running threads.
 
 // Data item for Error message queue
 struct err_msgq_data{m_thread_id thread;
