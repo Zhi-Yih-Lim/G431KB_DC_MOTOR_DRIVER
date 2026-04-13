@@ -2,6 +2,6 @@
 #define TYPES_H
 
 // Motor direction
-typedef enum {STAT, CLKW, CCLKW} Dir;
+typedef enum {STAT, CLKW, CCLKW, TEST} Dir; // TEST use for testing msgq.
 
 #endif

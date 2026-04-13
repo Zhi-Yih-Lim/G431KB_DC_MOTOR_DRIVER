@@ -8,7 +8,8 @@
 // Data types
 // ============================================================================
 typedef enum {PWM_NORMAL = 0, SET_PWM_ERR,
-              INVALID_DIR_ERR, ERR_UNKNOWN} PWM_ERR; // Error Codes
+              PWM_INVALID_DIR_ERR, 
+              PWM_ERR_UNKNOWN} PWM_STATUS; // Status Codes
 
 struct pwm_msgq_data{Dir direction;
                      uint8_t power; // 0 -> 100 duty cycle

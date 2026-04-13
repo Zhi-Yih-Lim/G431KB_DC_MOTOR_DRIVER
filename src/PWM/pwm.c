@@ -51,7 +51,7 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                                           uint8_t on_percent);
 static void _init_pwm(void);
 
-static PWM_ERR _set_pwm(Dir direction, uint8_t power);
+static PWM_STATUS _set_pwm(Dir direction, uint8_t power);
 
 
 // ============================================================================
@@ -219,7 +219,7 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                       (when viewed from the front side exposed shaft).
     @param power: The power of the motor (0-100).
 */
-static PWM_ERR _set_pwm(Dir direction, uint8_t power){
+static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
 
     uint8_t _pwr = 0;
     static Dir _dir = STAT; // To track previous rotation state.
