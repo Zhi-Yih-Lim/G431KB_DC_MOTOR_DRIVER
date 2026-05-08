@@ -1,5 +1,8 @@
 /* Pins pa2, pa3, pb8, pa9 and pa8 are all used up in nucleo_g431kb.dts */
 /* Timer #4 is being used in nucleo_g432kb.dts for pwm on pb8*/
+/* PA0 & PA1 used for PWM */
+/* PA6 and PA7 used for QDEC input */
+/* PA11 used for FDCAN_RX, PA12 used for FDCAN_TX */ 
 
 &pinctrl {
 	/* Pulling up both PWM pins as PWM set to function on active low. */
@@ -47,4 +50,15 @@
         qdec_counter: counter{
                 status = "okay";
         };
+};
+
+/* FDCAN */
+&fdcan1 {
+	status = "okay";
+	/* Arbitration speed */
+	bitrate = <500000>;
+	/* pa11 for FDCAN RX */
+	/* pa12 for FDCAN TX */
+	pinctrl-0 = <&fdcan1_rx_pa11 &fdcan1_tx_pa12>;
+	pinctrl-names = "default";
 };

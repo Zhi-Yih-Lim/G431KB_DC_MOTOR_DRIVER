@@ -423,7 +423,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
                            0, PWM_POLARITY_INVERTED);
             _dir = 0;
-            return INVALID_DIR_ERR;
+            return PWM_INVALID_DIR_ERR;
     }
 
     // Indicate successful pwm setting

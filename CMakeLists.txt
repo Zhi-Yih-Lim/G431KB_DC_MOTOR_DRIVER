@@ -9,4 +9,5 @@ target_sources(app PRIVATE
 	src/PWM/pwm.c
 	src/QDEC/qdec.c
 	src/QDEC/qdec_counter.c
+	src/CAN/fdcan.c
 )

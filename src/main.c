@@ -3,6 +3,7 @@
 #include <zephyr/device.h>
 #include "PWM/pwm.h"
 #include "QDEC/qdec.h"
+#include "CAN/fdcan.h"
 #include "err_msgq.h"
 
 // ============================================================================
@@ -37,8 +38,11 @@ int main (void)
 
     printk("Invoking pwm_init().\n");
     pwm_init();
+    printk("Invoking fdcan_init().\n");
+    fdcan_init();
     printk("Invoking qdec_counter_init(). \n");
     qdec_counter_init(1000000);
+
 
     //// Start the PWM thread
     //pwm_tid = k_thread_create(&pwm_thread,         // Thread struct
