@@ -36,12 +36,12 @@ int main (void)
     
     struct pwm_msgq_data pwm_data;
 
-    printk("Invoking pwm_init().\n");
-    pwm_init();
+    //printk("Invoking pwm_init().\n");
+    //pwm_init();
     printk("Invoking fdcan_init().\n");
     fdcan_init();
-    printk("Invoking qdec_counter_init(). \n");
-    qdec_counter_init(1000000);
+    //printk("Invoking qdec_counter_init(). \n");
+    //qdec_counter_init(1000000);
 
 
     //// Start the PWM thread
@@ -58,7 +58,11 @@ int main (void)
     //                         );
 
     // Start the qdec counter
-    start_qdec_counter();
+    //start_qdec_counter();
+
+    // Start the CAN controller
+    printf("Starting CAN controller.\r\n");
+    fd_can_start();
 
     while(1){
         printk("Main loop.\n");
@@ -66,30 +70,35 @@ int main (void)
         // Check to see if there are any errors in the error message queue
         ret = k_msgq_get(&err_msgq, &err_data, K_NO_WAIT);
 
-        if(!ret){
-            switch(err_data.thread){
-                case PWM:
-                    printk("PWM thread error %d.\n", err_data.err_no);
-                    // TODO: Send data to main mcu via CAN.
-                    // TODO: Re-initialize the PWM thread.
-                    break;
-                default:
-                    printk("Unknown thread id of %d with err no of %d.\n",
-                           err_data.thread,
-                           err_data.err_no);
-                    // TODO: Send data to main mcu via CAN.
-                    break; 
-            }
-        }
+        //if(!ret){
+            //switch(err_data.thread){
+                //case PWM:
+                    //printk("PWM thread error %d.\n", err_data.err_no);
+                    //// TODO: Send data to main mcu via CAN.
+                    //// TODO: Re-initialize the PWM thread.
+                    //break;
+                //default:
+                    //printk("Unknown thread id of %d with err no of %d.\n",
+                           //err_data.thread,
+                           //err_data.err_no);
+                    //// TODO: Send data to main mcu via CAN.
+                    //break; 
+            //}
+        //}
 
-        printk("main -> Setting CLKW direction at 20%% power. \n");
+        //printk("main -> Setting CLKW direction at 20%% power. \n");
 
-        pwm_data.direction = CLKW;
-        pwm_data.power = 100;
+        //pwm_data.direction = CLKW;
+        //pwm_data.power = 100;
 
-        k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+        //k_msgq_put(&pwm_msgq, &pwm_data, K_NO_WAIT);
+
+        printk("main -> Sending CAN message out.\r\n");
+
+        fd_can_send();
 
         k_msleep(main_thread_sleep_ms);
+
         
         //printk("main -> Setting CLKW direction at 40%% power. \n");
 

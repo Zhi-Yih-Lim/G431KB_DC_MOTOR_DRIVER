@@ -62,13 +62,13 @@ const k_tid_t pwm_tid;
 
 // Statically defining and initializing a thread.
 // The following command spawns a thread that starts immediately.
-K_THREAD_DEFINE(pwm_tid,                // Name of the thread
-                PWM_THREAD_STACK_SIZE,  // Stack size of thread in bytes 
-                pwm_thread_entry,       // Thread entry function
-                NULL, NULL, NULL,       // arg_1, arg_2, and arg_3
-                PWM_THREAD_PRIORITY,    // Thread priority 
-                0,                      // Thread options
-                0);                     // Scheduling delay
+//K_THREAD_DEFINE(pwm_tid,                // Name of the thread
+//                PWM_THREAD_STACK_SIZE,  // Stack size of thread in bytes 
+//                pwm_thread_entry,       // Thread entry function
+//                NULL, NULL, NULL,       // arg_1, arg_2, and arg_3
+//                PWM_THREAD_PRIORITY,    // Thread priority 
+//                0,                      // Thread options
+//                0);                     // Scheduling delay
 
 // ============================================================================
 // PWM message queue related
