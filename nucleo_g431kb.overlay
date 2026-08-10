@@ -1,18 +1,29 @@
 /* Pins pa2, pa3, pb8, pa9 and pa8 are all used up in nucleo_g431kb.dts */
-/* Timer #4 is being used in nucleo_g432kb.dts for pwm on pb8*/
-/* PA0 & PA1 used for PWM */
+/* Timer #4 is being used in nucleo_g432kb.dts for pwm on PB8*/
+/* PB6 & PB7 used for PWM */
 /* PA6 and PA7 used for QDEC input */
 /* PA11 used for FDCAN_RX, PA12 used for FDCAN_TX */ 
+/* PA4 used for Core Timer's LED. */
+/* PB5 used for SPI MOSI and PB3 used for SPI SCK for State RGB */
+
+#include <zephyr/dt-bindings/led/led.h>
+
+&leds{
+        timer_led: led_1{
+                gpios = <&gpioa 4 GPIO_ACTIVE_HIGH>;
+                label = "Core Timer LED";
+        };
+};
 
 &pinctrl {
 	/* Pulling up both PWM pins as PWM set to function on active low. */
-	tim2_ch1_pa0_pullup: tim2_ch1_pa0_pullup{
-		pinmux = <STM32_PINMUX('A', 0, AF1)>;
+	tim4_ch1_pb6_pullup: tim4_ch1_pb6_pullup{
+		pinmux = <STM32_PINMUX('B', 6, AF2)>;
 		bias-pull-up;
 	};
 	
-	tim2_ch2_pa1_pullup: tim2_ch2_pa1_pullup{
-		pinmux = <STM32_PINMUX('A', 1, AF1)>;
+	tim4_ch2_pb7_pullup: tim4_ch2_pb7_pullup{
+		pinmux = <STM32_PINMUX('B', 7, AF2)>;
 		bias-pull-up;
 	};
 	
@@ -32,25 +43,27 @@
 	};
 };
 
-/* timer 2 used for pwm generation for motors */
+/* timer 2 (32-bit) for background clock timer */
 &timers2 {
         status = "okay";
-        pwm2: pwm{
+        timer2_counter: counter{
                 status = "okay";
-                /* Using TIM2 (32-bit) independent channel 1 connected to pin pa0 on the board for IN1 on DRV8871*/
-		/* Using TIM2 (32-bit) independent channel 2 connected to pin pa1 on the board for IN2 on DRV8871*/
-		pinctrl-0 = <&tim2_ch1_pa0_pullup &tim2_ch2_pa1_pullup>;
-		pinctrl-names = "default";
         };
 };
 
-/* Modify timer4 to enable counter for qdec interrupt generation */
+/* Use timer4 for pwm generation for motors */
+/* (!) Already enabled in 'nucleo_g431kb.dts' */ 
 &timers4 {
-        // (!) Prescaler for timer 4 already set to 10000
-        qdec_counter: counter{
-                status = "okay";
-        };
+        // (!) Prescaler for timer 4 already set to 10000 in 'nucleo_g431kb.dts'
+        st,prescaler = <0>;
 };
+
+&pwm4 {
+        /* Using TIM4 (16-bit) independent channel 1 connected to pin pb6 on the board for IN1 on DRV8871*/
+        /* Using TIM4 (16-bit) independent channel 2 connected to pin pb7 on the board for IN2 on DRV8871*/
+        pinctrl-0 = <&tim4_ch1_pb6_pullup &tim4_ch2_pb7_pullup>;
+};
+
 
 /* FDCAN */
 &fdcan1 {
@@ -64,3 +77,30 @@
 	pinctrl-0 = <&fdcan1_rx_pa11 &fdcan1_tx_pa12>;
 	pinctrl-names = "default";
 };
+
+
+/* SPI */
+&spi1 {
+	status = "okay";    
+        pinctrl-0 = <&spi1_sck_pb3 &spi1_mosi_pb5>; // SCK pin definition required
+	pinctrl-names = "default";
+         
+        state_rgb: ws2812@0{
+	compatible = "worldsemi,ws2812-spi";
+                 
+              	/* SPI */
+ 		reg = <0>; /* ignored, but necessary for SPI bindings */
+ 		spi-max-frequency = <4000000>;
+ 		frame-format = <32768>; /* SPI_FRAME_FORMAT_TI */
+ 
+ 		/* WS2812 */
+ 		chain-length = <1>; /* arbitrary; change at will */
+ 		spi-one-frame = <0x70>;
+ 		spi-zero-frame = <0x40>;
+ 		color-mapping = <LED_COLOR_ID_GREEN
+ 				 LED_COLOR_ID_RED
+ 				 LED_COLOR_ID_BLUE>;
+        
+        };
+};
+

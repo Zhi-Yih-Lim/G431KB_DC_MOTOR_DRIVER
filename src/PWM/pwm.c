@@ -12,7 +12,7 @@
 // ============================================================================
 #define PWM_THREAD_STACK_SIZE 1024 // Size of PWM thread on stack
 #define PWM_THREAD_PRIORITY 7 // PWM thread priority level
-#define PWM2_NODE_ID DT_NODELABEL(pwm2) // Node identifer for 'pwm2' node
+#define PWM4_NODE_ID DT_NODELABEL(pwm4) // Node identifer for 'pwm4' node
 #define PWM_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
 
 
@@ -20,7 +20,7 @@
 // Locally global variables
 // ============================================================================
 // Get device pointer from node identifier
-static const struct device *const pwm2_dev = DEVICE_DT_GET(PWM2_NODE_ID);
+static const struct device *const pwm4_dev = DEVICE_DT_GET(PWM4_NODE_ID);
 
 static const uint32_t CLK_FREQ = 170000000; // Clock frequency of timer 3
 static const uint32_t DRV8871_FREQ = 90000; // Desired frequency to drive the 
@@ -51,7 +51,7 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                                           uint8_t on_percent);
 static void _init_pwm(void);
 
-static PWM_STATUS _set_pwm(Dir direction, uint8_t power);
+static PWM_STATUS _set_pwm(dir direction, uint8_t power);
 
 
 // ============================================================================
@@ -89,7 +89,7 @@ static char pwm_msgq_buffer[PWM_MSGQ_SIZE * sizeof(struct pwm_msgq_data)];
 */
 void pwm_init(){
     // Check to see if PWM device is ready.
-    if(!device_is_ready(pwm2_dev))
+    if(!device_is_ready(pwm4_dev))
     {
         printk("Cannot find PWM3 device!\n");
         return;
@@ -120,7 +120,7 @@ static void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
     }
 
     int ret = 0;
-    Dir pwm_dir = STAT;
+    dir pwm_dir = STAT;
 
     struct pwm_msgq_data msgq_data;
     struct err_msgq_data err_msgq_data;
@@ -219,10 +219,10 @@ static uint16_t _calc_pwm_duty_clk_cycles(uint32_t period_clk_cycle,
                       (when viewed from the front side exposed shaft).
     @param power: The power of the motor (0-100).
 */
-static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
+static PWM_STATUS _set_pwm(dir direction, uint8_t power){
 
     uint8_t _pwr = 0;
-    static Dir _dir = STAT; // To track previous rotation state.
+    static dir _dir = STAT; // To track previous rotation state.
 
     // Set a cap on the maximum power
     if(power > 100){
@@ -243,7 +243,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             // (inverted polarity) to enter braking mode.
 
             if(_dir == 1){ // Clockwise rotation, PA1 PWMed (Active Low)
-                if(pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 0, _dir == 1," 
                            " failed to disable PA1.\n");
@@ -257,7 +257,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
 
             }
             else if(_dir == 2){ // C-clockwise rotation, PA0 PWMed (Active Low)
-                if(pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 0, _dir == 2," 
                            " failed to disable PA0.\n");
@@ -280,7 +280,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
 
             if(_dir == 0){ // Stationary
                 // PWM PA1 to the desired duty cycle
-                if(pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 1, _dir == 0," 
                            " failed to set PA1.\n");
@@ -297,7 +297,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
                 // PA1 is being PWMed and PA0 is not.
                 // No direction change necessary but either power or angle
                 // change.
-                if(pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 1, _dir == 1," 
                            " failed to set PA1.\n");
@@ -312,7 +312,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             else{// Counter clockwise
                 // PA0 is being PWMed and PA1 is not.
                 // Issue stop command to PA0 and wait for one PWM period.
-                if(pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
                            " failed to disable PA0.\n");
@@ -328,7 +328,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
 
                 // PWM PA1 to the desired duty cycle.
-                if(pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
                            " failed to set PA1.\n");
@@ -350,7 +350,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
 
             if(_dir == 0){ // Stationary
                 // PWM PA0 to the desired duty cycle
-                if(pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 2, _dir == 0," 
                            " failed to set PA0.\n");
@@ -366,7 +366,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             else if(_dir == 1){// Currently clockwise
                 // PA1 is being PWMed and PA0 is not.
                 // Issue stop command to PA1 and wait for one PWM period.
-                if(pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
                            " failed to disable PA1.\n");
@@ -382,7 +382,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
 
                 // PWM PA0 to the desired duty cycle.
-                if(pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
                            " failed to set PA0.\n");
@@ -398,7 +398,7 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             else{// Currently counter-clockwise
                 // PA0 is being PWMed and PA1 is not.
                 // No direction change. Either power or angle change.
-                if(pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES,
+                if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
                     printk("pwm :: _set_pwm -> Case 2, _dir == 2," 
                            " failed to set PA0.\n");
@@ -418,9 +418,9 @@ static PWM_STATUS _set_pwm(Dir direction, uint8_t power){
             printk("_set_pwm -> Default Case.\n");
             // Turn PWM off to both PA0 and PA1 to keep signals 
             // of both channels high.
-            pwm_set_cycles(pwm2_dev, 1, PWM_PERIOD_CLK_CYCLES, 
+            pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES, 
                            0, PWM_POLARITY_INVERTED);
-            pwm_set_cycles(pwm2_dev, 2, PWM_PERIOD_CLK_CYCLES,
+            pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                            0, PWM_POLARITY_INVERTED);
             _dir = 0;
             return PWM_INVALID_DIR_ERR;

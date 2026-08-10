@@ -8,6 +8,9 @@ target_sources(app PRIVATE
 	src/main.c
 	src/PWM/pwm.c
 	src/QDEC/qdec.c
-	src/QDEC/qdec_counter.c
+	src/TIMER/main_timer.c
 	src/CAN/fdcan.c
+	src/TIMER/main_timer.c
+	src/STATE_MACHINE/state_machine.c
+	src/STAT_RGB/status_rgb.c
 )

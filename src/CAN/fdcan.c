@@ -1,42 +1,58 @@
 #include "fdcan.h"
+#include "../DRIVER_CONFIG/can_config.h"
 #include <zephyr/kernel.h>
-#include <zephyr/drivers/can.h>
 #include <stdlib.h>
 #include <zephyr/logging/log.h>
 
 LOG_MODULE_REGISTER(fdcan, 3); // Info level
 
+// ============================================================================
+// Macros
+// ============================================================================
+#define CAN_RX_MSGQ_LEN 10
+
+// Initialize the message queue
+K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
+
 // Const variables
-static const uint32_t can_id = 0x101;
+static const uint32_t local_can_id = LOCAL_CAN_ID;// From can_config.h
 static const struct device *const fdcan_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
 const struct can_filter rx_filter = {
     .flags = 0U, // Matches frames with 11-bit IDs.
-    .id = 0x100, // Accepts data from CAN ID 0x100
+    .id = CENTRAL_CAN_ID, // Accepts data from CAN ID 0x100
     .mask = CAN_STD_ID_MASK // Bit mask for standard 11-bit id.
     //.mask = 0U
 };
 
-const struct can_frame frame = {
-    .flags = CAN_FRAME_FDF|CAN_FRAME_BRS,
-    .id = 0x123,
-    .dlc = 5,
-    .data = {1,7,3,1,4}
-};
+//const struct can_frame frame = {
+//    .flags = CAN_FRAME_FDF|CAN_FRAME_BRS,
+//    .id = 0x123,
+//    .dlc = 5,
+//    .data = {1,7,3,1,4}
+//};
 
 // Function forward declarations
 void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data);
 void tx_callback(const struct device *dev, int error, void *user_data);
 
+/*
+    @Brief: Checks that the FDCAN device is ready and assigns an rx filter
 
-void fdcan_init(){
+    @param: None
+
+    @return: 0 -> Failed ; 1 -> Success
+*/
+
+int fdcan_init(){
+    LOG_INF("fdcan_init");
     // Check to see if CAN device is ready.
     if(!device_is_ready(fdcan_dev))
     {
-        printk("Cannot find FDCAN device!\n");
-        return;
+        LOG_ERR("Cannot find FDCAN device!\n");
+        return 0;
     }
     else{
-        printk("FDCAN device found\n");
+        LOG_INF("FDCAN device found\n");
     }
 
     // Set up receiving filter and callback
@@ -45,73 +61,68 @@ void fdcan_init(){
     filter_id = can_add_rx_filter(fdcan_dev, can_rx_callback, NULL, &rx_filter);
 
     if(filter_id < 0){
-        printk("fdcan_init -> Unable to add rx_filter.\r\n");
+        LOG_ERR("fdcan_init -> Unable to add rx_filter.\r\n");
+        return 0;
     }
     else{
-        printk("fdcan_init -> rx_filter successfully added.\r\n");
+        LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
     }
+
+    return 1;
     
 }
 
-void fd_can_start(){
+int fd_can_start(){
     int ret;
-
-    struct can_timing data_timing = {
-        .sjw = 1,
-        .prop_seg = 0,
-        .phase_seg1 = 6,
-        .phase_seg2 = 3,
-        .prescaler = 17
-    };
 
     ret = can_set_mode(fdcan_dev, CAN_MODE_FD);
 
     if (ret != 0) {
 		LOG_ERR("Error setting CAN mode [%d]", ret);
-		return;
+		return 0;
 	}
-
-    //ret = can_set_timing_data(fdcan_dev, &data_timing);
-
-    //if (ret != 0){
-    //    LOG_ERR("Error setting timing parameters for data [%d]", ret);
-    //    return;
-    //}
 
     ret = can_start(fdcan_dev);
 
     if(ret != 0){
        LOG_ERR("Error starting CAN Controller [%d]. \r\n", ret);
-       return;
+       return 0;
     }
     else{
         LOG_INF("Successfully started CAN controller.\r\n");
     }
+
+    return 1;
 }
+
 /* Function definitions */
 
-// Callback for receiving messages
+// Callback for receiving messages (ISR context)
 void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data){
-    printk("The sender's id is %d.\r\n", frame->id);
-    printk("The data length code (DLC) is %d bytes.\r\n", frame->dlc);
-    uint8_t data_length_bytes = frame->dlc;
 
-    for(uint8_t c = 0; c < data_length_bytes; c++){
-        LOG_INF("The received message at index %d is %d.", c, frame->data[c]);
+    ARG_UNUSED(user_data);
+    
+    int ret = k_msgq_put(&can_rx_msgq, (void *)frame, K_NO_WAIT);
+
+    LOG_INF("CAN MSG received");
+
+    if(ret < 0){
+        k_msgq_put(&can_rx_msgq, NULL, K_NO_WAIT); // Error condition.
     }
 }
 
 void fd_can_send(){
     int ret;
     
-    ret = can_send(fdcan_dev, &frame, K_FOREVER, tx_callback, "Test Sender");
+    // TODO: Another message queue to for queueing up messages to be sent ?
+    // ret = can_send(fdcan_dev, &frame, K_FOREVER, tx_callback, "Test Sender");
 
-    if (ret != 0){
-        printk("Cand message sending failed [%d].\r\n", ret);
-    }
-    else{
-        printk("CAN successfully sent message\r\n");
-    }
+    //if (ret != 0){
+    //    printk("Cand message sending failed [%d].\r\n", ret);
+    //}
+    //else{
+    //    printk("CAN successfully sent message\r\n");
+    //}
 
 }
 
