@@ -211,7 +211,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             sm_post_event(state_machine_p, SM_EVENT_ERROR);
         }
         else{
-            if(can_data_struct_p->dlc != CAN_DATA_SIZE){
+            if(can_dlc_to_bytes(can_data_struct_p->dlc) != CAN_DATA_SIZE){
                 LOG_ERR("Incorrect data length received.");
                 continue;
             }
@@ -232,7 +232,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 
                 // TODO: Analyze message and post events to 
                 //       sm_post_event();
-                memcpy(action_arr, can_data_struct_p->data+CAN_TRGT_ID_SIZE, 
+                memcpy(action_arr, can_data_struct_p->data+CAN_TID_SIZE, 
                        (size_t)CAN_ACTION_SIZE);
 
                 LOG_INF("Action[0] is %c", action_arr[0]);
@@ -259,8 +259,6 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 
                                 state_machine_p = NULL;
                             }
-
-                            LOG_INF("Successfully reset counter.");
                             break;
                         case 'M': // Move command
                             switch(action_arr[1]){
@@ -271,6 +269,18 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                             }
                             break;
                         case 'G': // Get data from driver
+                            switch(action_arr[1]){
+                                case 'T': // Get counter ticks
+                                    ret = sm_post_event(state_machine_p, SM_EVENT_SEND_TICKS);
+                                    
+                                    if(!ret){
+                                        LOG_ERR("Failed to post counter reset event on to \
+                                                event queue.");
+
+                                        state_machine_p = NULL;
+                                    }
+                                    break;
+                            }
                             break;
                         case 'T': // Transmit data from driver
                             break;

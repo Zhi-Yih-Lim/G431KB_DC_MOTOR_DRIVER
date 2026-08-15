@@ -136,6 +136,9 @@ static void led_alarm_cback(const struct device *dev,
 	}
 
     LOG_INF("Next alarm will trigger in %u ticks", alrm_confg->ticks);
+
+    LOG_INF("852944759 ticks is = %lld microseconds", counter_ticks_to_us(dev, 852944759));
+    LOG_INF("853352718 ticks is = %lld microseconds", counter_ticks_to_us(dev, 853352718));
 }
 
 // Callback for motor move alarm
@@ -347,6 +350,38 @@ int64_t get_current_ticks(){
     }
     else{
         return -1;
+    }
+}
+
+
+void get_current_ticks_unpacked(uint8_t *unpack_arr)
+{
+    int ret;
+    uint8_t arr_len = 4; // Counter is a 32-bit counter
+    uint32_t current_ticks;
+
+    if(core_counter_ready){
+
+        ret = counter_get_value(core_cntr_dev, &current_ticks);
+    
+        if(ret < 0){
+            LOG_ERR("Error [%d], could not get counter ticks.", ret);
+            memset(unpack_arr, 0, 4);
+        }
+
+        // Unpack counter value in big endian format
+        for (uint8_t c = 1; c <= arr_len; c++){
+            *(unpack_arr + (arr_len - c)) = current_ticks & 0xFF;
+            current_ticks = current_ticks >> 8;
+        }
+
+        LOG_INF("Unpack_arr[0], Unpack_arr[1], Unpack_arr[2], Unpack_arr[3]");
+        LOG_INF("%d, %d, %d, %d", unpack_arr[0],unpack_arr[1],unpack_arr[2],unpack_arr[3]);
+
+    }
+    else{
+        LOG_ERR("Core counter device is not ready.");
+        memset(unpack_arr, 0x00, 4);
     }
 }
 

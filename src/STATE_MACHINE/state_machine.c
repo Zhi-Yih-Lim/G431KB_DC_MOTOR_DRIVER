@@ -2,6 +2,8 @@
 #include "../STAT_RGB/status_rgb.h"
 #include <zephyr/logging/log.h>
 #include "../TIMER/main_timer.h"
+#include "../CAN/fdcan.h" // For "drivers/can.h" and "fd_can_send()"
+#include "../DRIVER_CONFIG/can_config.h" // For "CENTRAL_CAN_ID"
 
 LOG_MODULE_REGISTER(state_machine, 3); // Info level
 
@@ -12,6 +14,9 @@ LOG_MODULE_REGISTER(state_machine, 3); // Info level
 
 #define SM_THREAD_STACK_SIZE 2048
 #define SM_THREAD_PRIORITY 5
+
+uint8_t out_data[CAN_DATA_SIZE] = {0};// Static array used to curate outgoing
+                                      // CAN data
 
 // Statically allocate stack for threads.
 K_THREAD_STACK_DEFINE(sm_thread_stack, SM_THREAD_STACK_SIZE);
@@ -102,21 +107,20 @@ static void _sm_timer_reset_exit(sm_t *sm)
 {
     set_status_rgb(SM_STATE_IDLE);
     sm->state = SM_STATE_IDLE;
-    LOG_INF("Swithced to IDLE state from reset exit function.");
+    LOG_INF("Switched to IDLE state from reset exit function.");
 }
 
 static void _sm_timer_reset_entry(sm_t *sm)
 {
     set_status_rgb(SM_STATE_COUNTER_RESET);
     sm->state = SM_STATE_COUNTER_RESET;
-    LOG_INF("Swithced to COUNTER_RESET state from reset entry function.");
+    LOG_INF("Switched to COUNTER_RESET state from reset entry function.");
     // Reset the counter and set the machine's state back to IDLE
     if(!reset_core_counter()){
         LOG_ERR("Failed to reset counter.");
         _sm_error_entry(sm);
         return;
     }
-    k_msleep(3000); // DELETE ME WHEN CONFIRMED WORKING !
     _sm_timer_reset_exit(sm);
 }
 
@@ -130,11 +134,43 @@ static void _sm_move_motor_entry(sm_t *sm)
 static void _sm_move_motor_exit(sm_t *sm)
 {
     // TODO: Terminate move motor thread.
-    // TODO: Set state RGB to indicate we will be in IDLE state.
     set_status_rgb(SM_STATE_IDLE);
     sm->state = SM_STATE_IDLE;
 }
 
+static void _sm_get_ticks_entry(sm_t *sm)
+{
+    int ret;
+    set_status_rgb(SM_STATE_GET_TICKS);
+    sm->state = SM_STATE_GET_TICKS;
+    uint8_t unpacked_counter_ticks[4] = {0};
+
+    // Unpack a 32-bit counter value into 4, 8-bit values (Big Endian) 
+    get_current_ticks_unpacked(unpacked_counter_ticks);
+
+    // Outgoing data frame
+    out_data[0] = CENTRAL_CAN_ID;
+    out_data[1] = 0x54; //"T"
+    out_data[2] = 0x54; //"T"
+    out_data[3] = 0x00;
+    out_data[4] = 0x00;
+    out_data[5] = 0x00;
+    out_data[6] = 0x00;
+    out_data[7] = unpacked_counter_ticks[0];
+    out_data[8] = unpacked_counter_ticks[1];
+    out_data[9] = unpacked_counter_ticks[2];
+    out_data[10] = unpacked_counter_ticks[3];
+
+    ret = fd_can_send(out_data, "Counter Ticks");
+
+    if(ret){
+        LOG_ERR("Error [%d] sending out CAN message.", ret);
+        _sm_error_entry(sm);
+    }
+
+    set_status_rgb(SM_STATE_IDLE);
+    sm->state = SM_STATE_IDLE; 
+}
 static void _sm_error_entry(sm_t *sm)
 {
     if(sm->state != SM_STATE_ERROR){
@@ -182,7 +218,6 @@ static void _sm_thread_task(void *p1, void *p2, void *p3)
 static void _sm_thread_dispatch(sm_t *sm, sm_event_t event)
 {
     switch(sm->state){
-
         case SM_STATE_IDLE:
             switch(event){
                 case SM_EVENT_COUNTER_RESET:
@@ -190,6 +225,9 @@ static void _sm_thread_dispatch(sm_t *sm, sm_event_t event)
                     break;
                 case SM_EVENT_MOVE:
                     _sm_move_motor_entry(sm);
+                    break;
+                case SM_EVENT_SEND_TICKS:
+                    _sm_get_ticks_entry(sm);
                     break;
                 case SM_EVENT_ERROR:
                     _sm_error_entry(sm);
@@ -210,10 +248,12 @@ static void _sm_thread_dispatch(sm_t *sm, sm_event_t event)
                     // Already resetting, do nothing
                     break;
                 case SM_EVENT_MOVE:
-                    LOG_ERR("Attempting to move motors while counter \
-                            is resetting.");
-                    _sm_error_entry(sm);
+                    LOG_WRN("Attempting to move motors while counter \
+                            is resetting, move command ignored.");
                     break;
+                case SM_EVENT_SEND_TICKS:
+                    LOG_WRN("Attempting to get ticks while counter \
+                            is resetting, get ticks command ignored.");
                 case SM_EVENT_ERROR:
                     _sm_error_entry(sm);
                     break;
@@ -223,6 +263,20 @@ static void _sm_thread_dispatch(sm_t *sm, sm_event_t event)
                     break;
             }
             break;
+
+        case SM_STATE_GET_TICKS:
+            switch(event){
+                case SM_EVENT_SEND_TICKS:
+                    // Already getting ticks, do nothing.
+                    break;
+                case SM_EVENT_SEND_ENCODER:
+                    // Only one "can_send" operation at a time. Ignore.
+                    break;
+                default:
+                    LOG_ERR("Undefined event in SM_STATE_GET_TICKS.");
+                    _sm_error_entry(sm);
+                    break;
+            }
 
         case SM_STATE_ERROR:
             switch(event){

@@ -10,6 +10,7 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 // Macros
 // ============================================================================
 #define CAN_RX_MSGQ_LEN 10
+#define CAN_TX_FLAGS CAN_FRAME_FDF|CAN_FRAME_BRS
 
 // Initialize the message queue
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
@@ -24,12 +25,10 @@ const struct can_filter rx_filter = {
     //.mask = 0U
 };
 
-//const struct can_frame frame = {
-//    .flags = CAN_FRAME_FDF|CAN_FRAME_BRS,
-//    .id = 0x123,
-//    .dlc = 5,
-//    .data = {1,7,3,1,4}
-//};
+static struct can_frame out_data = {
+        .flags = CAN_TX_FLAGS,
+        .id = LOCAL_CAN_ID,
+};
 
 // Function forward declarations
 void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data);
@@ -111,19 +110,31 @@ void can_rx_callback(const struct device *dev, struct can_frame *frame, void *us
     }
 }
 
-void fd_can_send(){
+int fd_can_send(const uint8_t *data_2_send, 
+                char *data_type){
     int ret;
+
+    // Clear out memory contents between sends
+    memset(out_data.data, 0, CAN_MAX_DLEN);
+
+    // Set the data length
+    out_data.dlc = can_bytes_to_dlc(CAN_DATA_SIZE),
+
+    // Set contents to send out
+    memcpy(out_data.data, data_2_send, CAN_DATA_SIZE);
     
-    // TODO: Another message queue to for queueing up messages to be sent ?
-    // ret = can_send(fdcan_dev, &frame, K_FOREVER, tx_callback, "Test Sender");
+    // Blocks until TX mailbox is assigned or error occured. Does not 
+    // wait for acknowledgement of reception of outgoing message.
+    ret = can_send(fdcan_dev, &out_data, K_FOREVER, tx_callback, data_type);
 
-    //if (ret != 0){
-    //    printk("Cand message sending failed [%d].\r\n", ret);
-    //}
-    //else{
-    //    printk("CAN successfully sent message\r\n");
-    //}
+    if (ret != 0){
+        LOG_ERR("Failed to send CAN message, Error [%d].", ret);
+        return 0;
+    }
 
+    LOG_INF("CAN successfully sent message");
+
+    return 1;
 }
 
 

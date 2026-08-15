@@ -10,6 +10,7 @@ typedef enum{
     SM_STATE_IDLE = 0,
     SM_STATE_COUNTER_RESET,
     SM_STATE_MOVE,
+    SM_STATE_GET_TICKS,
     SM_STATE_ERROR
 } sm_state_t;
 
@@ -19,6 +20,8 @@ typedef enum{
 typedef enum{
     SM_EVENT_COUNTER_RESET = 0, // CAN counter reset command
     SM_EVENT_MOVE,              // CAN Move command
+    SM_EVENT_SEND_TICKS,
+    SM_EVENT_SEND_ENCODER,
     SM_EVENT_ERROR
 } sm_event_t;
 

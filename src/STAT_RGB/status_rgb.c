@@ -6,18 +6,20 @@
 #include <zephyr/drivers/spi.h>
 
 #define STRIP_NUM_PIXELS 1
-#define LED_BRIGHTNESS 20
+#define LED_BRIGHTNESS 10
 #define RGB(_r,_g,_b) {.r =(_r), .g =(_g), .b =(_b)}
+#define INTENSITY(_cval) ((int)(_cval*(LED_BRIGHTNESS/100.0f)))
 
 // ============================================================================
 // Predefined colors for each state
 // ============================================================================
 
 static const struct led_rgb state_colors[] = {
-    RGB(LED_BRIGHTNESS, LED_BRIGHTNESS, LED_BRIGHTNESS),// IDLE -> White
-    RGB(0x00, 0x00, LED_BRIGHTNESS),// Counter reset -> Blue
-    RGB(0x00, LED_BRIGHTNESS, 0x00),// Moving -> Green
-    RGB(LED_BRIGHTNESS, 0x00, 0x00),// Error -> Red
+    RGB(INTENSITY(255), INTENSITY(255), INTENSITY(255)),// IDLE : White
+    RGB(INTENSITY(0), INTENSITY(0), INTENSITY(255)),// Counter Reset : Blue
+    RGB(INTENSITY(0), INTENSITY(255), INTENSITY(0)),// Moving : Green
+    RGB(INTENSITY(127), INTENSITY(0), INTENSITY(255)),// Get Ticks : Purple
+    RGB(INTENSITY(255), INTENSITY(0), INTENSITY(0)),// Error : Red
 };
 
 LOG_MODULE_REGISTER(STATE_RGB, 3); // Info level
