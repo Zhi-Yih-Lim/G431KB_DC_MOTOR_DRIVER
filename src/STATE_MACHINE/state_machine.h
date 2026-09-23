@@ -2,33 +2,13 @@
 #define STATE_MACHINE_H
 
 #include <zephyr/kernel.h>
+#include "../types.h"
 
-// ============================================================================
-// States
-// ============================================================================
-typedef enum{
-    SM_STATE_IDLE = 0,
-    SM_STATE_COUNTER_RESET,
-    SM_STATE_MOVE,
-    SM_STATE_GET_TICKS,
-    SM_STATE_ERROR
-} sm_state_t;
-
-// ============================================================================
-// Events
-// ============================================================================
-typedef enum{
-    SM_EVENT_COUNTER_RESET = 0, // CAN counter reset command
-    SM_EVENT_MOVE,              // CAN Move command
-    SM_EVENT_SEND_TICKS,
-    SM_EVENT_SEND_ENCODER,
-    SM_EVENT_ERROR
-} sm_event_t;
 
 // ============================================================================
 // State machine instance
 // ============================================================================
-typedef struct {
+struct sm{
     sm_state_t state;
 
     // A message queue for events.
@@ -39,14 +19,14 @@ typedef struct {
     k_tid_t sm_tid;
 
     // A PD-controller thread that is spawned only in the MOVE state.
-
-} sm_t;
+    k_tid_t pid_tid;
+};
 
 // ============================================================================
 // Public APIs
 // ============================================================================
-int sm_init(sm_t *sm);
-int sm_post_event(sm_t *sm, sm_event_t event);
-sm_state_t sm_get_state(sm_t *sm);
+int sm_init(struct sm *sm);
+int sm_post_event(struct sm *sm, struct event_struct event_s);
+sm_state_t sm_get_state(struct sm *sm);
 
 #endif

@@ -1,8 +1,10 @@
 #include <zephyr/kernel.h>
 #include <zephyr/device.h>
-#include <zephyr/drivers/sensor.h>
 #include <zephyr/sys/printk.h>
+#include <zephyr/logging/log.h>
 #include "qdec.h"
+
+LOG_MODULE_REGISTER(quadrature_encoder, 3); // Info level
 
 // ============================================================================
 // MACROS
@@ -14,7 +16,6 @@
 // ============================================================================
 // Get device pointer from node identifier
 static const struct device * const qdec3_dev = DEVICE_DT_GET(QDEC3_NODE_ID);
-static struct sensor_value angle; // 'sensor_value' struct to store angle
 static int qdec_ready = 0;
 
 // ============================================================================
@@ -24,43 +25,52 @@ static int qdec_ready = 0;
 /*
     Brief: To be invoked 
 */
-void qdec_init(){
+int qdec_init(){
     // Check to see if PWM device is ready.
     if(!device_is_ready(qdec3_dev))
     {
-        printk("Cannot find QDEC3 device! \r\n");
-        return;
+        LOG_ERR("Cannot find QDEC3 device.");
+        return 0;
     }
     else{
-        printk("QDEC device found \r\n");
+        LOG_INF("QDEC device found.");
         qdec_ready = 1;
+        return 1;
     }
 }
 
 /*
-    Brief: To be called by qdec counter isr to read angle
+    Brief: Perform a simple angle readout.
 */
-void qdec_read_angle(){
+int qdec_read_angle(struct sensor_value * deg){
     if(qdec_ready){
        int ret;
        
+       // Blocks until data from the requested sensor channel has been obtained
+       // and stored into the driver instance's private data.
        ret = sensor_sample_fetch(qdec3_dev);
 
        if(ret != 0){
-            printk("qdec_read_angle -> Failed to fetch sample (%d) \r\n", ret);
+            LOG_ERR("Failed to sensor_sample_fetch. Error [%d].", ret);
+            return 0;
        }
 
-       ret = sensor_channel_get(qdec3_dev, SENSOR_CHAN_ROTATION, &angle);
+       // To obtain the most recently fetched channel data.
+       // Supports either "SENSOR_CAN_ROTATION" to return the angular rotation 
+       // in degrees.
+       // Or "SENSOR_CHAN_ENCODER_COUNT" to return the raw quadrature decoder
+       // counts, in raw counts.
+       ret = sensor_channel_get(qdec3_dev, SENSOR_CHAN_ROTATION, deg);
        
        if(ret != 0){
-            printk("qdec_read_angle -> Failed to get data (%d) \r\n", ret);
+            LOG_ERR("Failed to get data. Error [%d].", ret);
+            return 0;
        }
 
-       printk("qdec_read_angle -> The motor's current angular displacement "
-              "is %d degrees. \r\n", angle.val1);
+       return 1;
     }
     else{
-        printk("qdec_read_angle -> QDEC device is not ready. \r\n");
+        LOG_ERR("QDEC device is not ready.");
+        return 0;
     }
-
 }

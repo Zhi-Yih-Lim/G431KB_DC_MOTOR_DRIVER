@@ -16,7 +16,6 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
 
 // Const variables
-static const uint32_t local_can_id = LOCAL_CAN_ID;// From can_config.h
 static const struct device *const fdcan_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
 const struct can_filter rx_filter = {
     .flags = 0U, // Matches frames with 11-bit IDs.

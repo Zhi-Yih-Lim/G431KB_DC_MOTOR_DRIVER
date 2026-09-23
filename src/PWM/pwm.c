@@ -1,20 +1,22 @@
 #include <zephyr/kernel.h>
-#include <zephyr/sys/printk.h>
 #include <zephyr/device.h>
 #include <zephyr/drivers/gpio.h>
 #include <zephyr/drivers/pwm.h>
 #include <math.h>
+#include <zephyr/logging/log.h>
 #include "pwm.h"
 #include "../err_msgq.h"
+#include "../DRIVER_CONFIG/pid_config.h"
+
+LOG_MODULE_REGISTER(pwm, 3); // Info level
 
 // ============================================================================
 // MACROS
 // ============================================================================
-#define PWM_THREAD_STACK_SIZE 1024 // Size of PWM thread on stack
-#define PWM_THREAD_PRIORITY 7 // PWM thread priority level
+//#define PWM_THREAD_STACK_SIZE 1024 // Size of PWM thread on stack
+//#define PWM_THREAD_PRIORITY 7 // PWM thread priority level
 #define PWM4_NODE_ID DT_NODELABEL(pwm4) // Node identifer for 'pwm4' node
-#define PWM_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
-
+//#define PWM_MSGQ_SIZE 10 // Number of data elements that can be held by msgq.
 
 // ============================================================================
 // Locally global variables
@@ -29,18 +31,8 @@ static uint32_t PWM_PERIOD_CLK_CYCLES;// Number of clock cycles per pwm period
 static uint16_t PWM_DUTY_CLK_CYCLES;// Number of clock cycles for the specified
                                     // duty cycle.
 
-static const uint32_t pwm_thread_sleep_ms = 500; // Sleep period for the PWM
-                                                 // thread, determines how 
-                                                 // fast motion commands gets
-                                                 // updated.
-
 static uint8_t pwm_ready = 0; // Flag that permits the starting of the PWM
                               // thread.
-
-// ============================================================================
-// Forward declarations
-// ============================================================================
-static void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3);
 
 // ============================================================================
 // Local helper methods
@@ -58,7 +50,7 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power);
 // PWM thread related
 // ============================================================================
 // PWM thread id to be used in 'K_THREAD_DEFINE' below.
-const k_tid_t pwm_tid;
+//const k_tid_t pwm_tid;
 
 // Statically defining and initializing a thread.
 // The following command spawns a thread that starts immediately.
@@ -75,10 +67,10 @@ const k_tid_t pwm_tid;
 // (!) Message queue to be exposed to PD-Controller thread.
 // ============================================================================
 // Message queue variable
-struct k_msgq pwm_msgq;
+//struct k_msgq pwm_msgq;
 
 // PWM message queue buffer
-static char pwm_msgq_buffer[PWM_MSGQ_SIZE * sizeof(struct pwm_msgq_data)];
+//static char pwm_msgq_buffer[PWM_MSGQ_SIZE * sizeof(struct pwm_msgq_data)];
 
 // ============================================================================
 // Function definitions
@@ -87,72 +79,66 @@ static char pwm_msgq_buffer[PWM_MSGQ_SIZE * sizeof(struct pwm_msgq_data)];
 /*
     Brief: To be invoked before starting the pwm thread
 */
-void pwm_init(){
+int pwm_init(){
     // Check to see if PWM device is ready.
     if(!device_is_ready(pwm4_dev))
     {
-        printk("Cannot find PWM3 device!\n");
-        return;
+        LOG_ERR("Cannot find PWM3 device!\n");
+        return 0;
     }
     else{
-        printk("PWM device found\n");
+        LOG_INF("PWM device found\n");
+        return 1;
     }
 
     _init_pwm();
-
-    // Initialize PWM message queue
-    k_msgq_init(&pwm_msgq, pwm_msgq_buffer, 
-                sizeof(struct pwm_msgq_data), PWM_MSGQ_SIZE);
     
     pwm_ready = 1;
 }
 
-/*
-    Brief: Funtion to be invoked when the PWM thread starts.
+int pwm_actuate(int64_t pid_output)
+{
+    static uint8_t power = 0;
+    static dir motor_dir = STAT;
 
-    @param arg_1 -> 3: Optional arguments to be passed into the thread.
-*/
-static void pwm_thread_entry(void *arg_1, void *arg_2, void *arg_3){
-    
-    while(!pwm_ready){
-        printk("pwm_thread_entry :: PWM device is not ready. \n");
-        k_msleep(1000);
+    if(pid_output < 0){
+        motor_dir = CCLKW;
+        power = (uint8_t)(-pid_output/(int64_t)ANG_VEL_SCALE);
+        LOG_INF("Motor direction is CCLKW and power is set to %d",
+                power);
+    } 
+    else{
+        motor_dir = CLKW;
+        power = (uint8_t)(pid_output/(int64_t)ANG_VEL_SCALE);
+        LOG_INF("Motor direction is CLKW and power is set to %d",
+                power);
     }
 
-    int ret = 0;
-    dir pwm_dir = STAT;
+    switch(_set_pwm(motor_dir, power))
+    {
+        case PWM_NORMAL:
+            LOG_INF("PWM normal operation.");
+            return 1;
 
-    struct pwm_msgq_data msgq_data;
-    struct err_msgq_data err_msgq_data;
+        case SET_PWM_ERR:
+            LOG_ERR("Failed to set PWM signal.");
+            return 0;
 
-    // Start off the PWM in braking mode
-    _set_pwm(pwm_dir, 0);        
+        case PWM_INVALID_DIR_ERR:
+            LOG_ERR("Invalid direction command.");
+            return 0;
 
-    printk("pwm_thread_entry :: Entering while loop.\n");
+        case PWM_ERR_UNKNOWN:
+            LOG_ERR("Unknown error.");
+            return 0;
 
-    while(!ret){
-        // Fetch a data item from the message queue.
-        k_msgq_get(&pwm_msgq, &msgq_data, K_FOREVER);
+        default:
+            LOG_ERR("Unknown state returned by _set_pwm");
+            return 0;
 
-        printk("pwn_thread_entry :: Data fetched from PWM msgq with contents"
-               "direction = %d and power = %d.\n",
-               msgq_data.direction, msgq_data.power);
-
-        ret = (int)_set_pwm(msgq_data.direction, 
-                            msgq_data.power);
-
-        k_msleep(pwm_thread_sleep_ms);
     }
-
-    // Set relevant thread id and error number.
-    err_msgq_data.thread = PWM;
-    err_msgq_data.err_no = ret;
-
-    k_msgq_put(&err_msgq, &err_msgq_data, K_NO_WAIT);
-
-    // (!) PWM thread termintates by returning.
-
 }
+
 // ============================================================================
 // Internal functions definitions
 // ============================================================================
@@ -164,7 +150,7 @@ static void _init_pwm(void){
     PWM_PERIOD_CLK_CYCLES = _calc_pwm_period_clk_cycles(CLK_FREQ, 
                                                         DRV8871_FREQ);
 
-    printk("_init_pwm :: The number of clock cycles per PWM period is %d\n", PWM_PERIOD_CLK_CYCLES);
+    LOG_INF("The number of clock cycles per PWM period is %d.", PWM_PERIOD_CLK_CYCLES);
 
 }
 
@@ -226,7 +212,7 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
 
     // Set a cap on the maximum power
     if(power > 100){
-        printk("_set_pwm :: Power set to be above 100, capping power to 100.\n");
+        LOG_WRN("Power set to be above 100, capping power to 100.");
         _pwr = 100;
     }
     else{
@@ -245,29 +231,29 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
             if(_dir == 1){ // Clockwise rotation, PA1 PWMed (Active Low)
                 if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 0, _dir == 1," 
-                           " failed to disable PA1.\n");
+                    LOG_ERR("_set_pwm -> Case 0, _dir == 1," 
+                            " failed to disable PA1.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 0, _dir == 1, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 0, _dir == 1, successfully set.");
 
             }
             else if(_dir == 2){ // C-clockwise rotation, PA0 PWMed (Active Low)
                 if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 0, _dir == 2," 
-                           " failed to disable PA0.\n");
+                    LOG_ERR("_set_pwm -> Case 0, _dir == 2," 
+                            " failed to disable PA0.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 0, _dir == 2, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 0, _dir == 2, successfully set.");
 
             }
 
@@ -282,15 +268,15 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // PWM PA1 to the desired duty cycle
                 if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 0," 
-                           " failed to set PA1.\n");
+                    LOG_ERR("_set_pwm -> Case 1, _dir == 0," 
+                            " failed to set PA1.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 1, _dir == 0, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 1, _dir == 0, successfully set.");
                 
             }
             else if(_dir == 1){// Clockwise
@@ -299,30 +285,30 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // change.
                 if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 1," 
-                           " failed to set PA1.\n");
+                    LOG_ERR("_set_pwm -> Case 1, _dir == 1," 
+                            " failed to set PA1.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 1, _dir == 1, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 1, _dir == 1, successfully set.");
             }
             else{// Counter clockwise
                 // PA0 is being PWMed and PA1 is not.
                 // Issue stop command to PA0 and wait for one PWM period.
                 if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
-                           " failed to disable PA0.\n");
+                    LOG_ERR("_set_pwm -> Case 1, _dir == 2," 
+                            " failed to disable PA0.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 1, _dir == 2, entering 1 cycle wait.\n");
+                LOG_INF("_set_pwm -> Case 1, _dir == 2, entering 1 cycle wait.");
 
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
@@ -330,15 +316,15 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // PWM PA1 to the desired duty cycle.
                 if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 1, _dir == 2," 
-                           " failed to set PA1.\n");
+                    LOG_ERR("_set_pwm -> Case 1, _dir == 2," 
+                            " failed to set PA1.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 1, _dir == 2, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 1, _dir == 2, successfully set.");
             }
 
             _dir = 1;
@@ -352,15 +338,15 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // PWM PA0 to the desired duty cycle
                 if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 0," 
-                           " failed to set PA0.\n");
+                    LOG_ERR("_set_pwm -> Case 2, _dir == 0," 
+                            " failed to set PA0.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 2, _dir == 0, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 2, _dir == 0, successfully set.");
 
             }
             else if(_dir == 1){// Currently clockwise
@@ -368,15 +354,15 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // Issue stop command to PA1 and wait for one PWM period.
                 if(pwm_set_cycles(pwm4_dev, 2, PWM_PERIOD_CLK_CYCLES,
                                0, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
-                           " failed to disable PA1.\n");
+                    LOG_ERR("_set_pwm -> Case 2, _dir == 1," 
+                            " failed to disable PA1.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 2, _dir == 1, entering 1 cycle wait.\n");
+                LOG_INF("_set_pwm -> Case 2, _dir == 1, entering 1 cycle wait.");
 
                 // Wait for one PWM cycle.
                 k_usleep(ceil(1.0f/DRV8871_FREQ*1000000));
@@ -384,15 +370,15 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // PWM PA0 to the desired duty cycle.
                 if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 1," 
-                           " failed to set PA0.\n");
+                    LOG_ERR("_set_pwm -> Case 2, _dir == 1," 
+                            " failed to set PA0.");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
 
-                printk("_set_pwm -> Case 2, _dir == 1, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 2, _dir == 1, successfully set.");
 
             }
             else{// Currently counter-clockwise
@@ -400,14 +386,14 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
                 // No direction change. Either power or angle change.
                 if(pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES,
                                PWM_DUTY_CLK_CYCLES, PWM_POLARITY_INVERTED)){
-                    printk("pwm :: _set_pwm -> Case 2, _dir == 2," 
-                           " failed to set PA0.\n");
+                    LOG_ERR("_set_pwm -> Case 2, _dir == 2," 
+                            " failed to set PA0.\n");
                     
                     // TODO: Cut power supply to motors ??
 
                     return SET_PWM_ERR;
                 }
-                printk("_set_pwm -> Case 2, _dir == 2, successfully set.\n");
+                LOG_INF("_set_pwm -> Case 2, _dir == 2, successfully set.");
             }
 
             _dir = 2;
@@ -415,7 +401,7 @@ static PWM_STATUS _set_pwm(dir direction, uint8_t power){
             break;
 
         default:
-            printk("_set_pwm -> Default Case.\n");
+            LOG_ERR("_set_pwm -> Default Case.");
             // Turn PWM off to both PA0 and PA1 to keep signals 
             // of both channels high.
             pwm_set_cycles(pwm4_dev, 1, PWM_PERIOD_CLK_CYCLES, 

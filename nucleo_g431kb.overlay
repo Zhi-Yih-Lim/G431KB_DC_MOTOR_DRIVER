@@ -5,6 +5,7 @@
 /* PA11 used for FDCAN_RX, PA12 used for FDCAN_TX */ 
 /* PA4 used for Core Timer's LED. */
 /* PB5 used for SPI MOSI and PB3 used for SPI SCK for State RGB */
+/* PA15 used for USART2_RX, PA14 used for USART2_TX */
 
 #include <zephyr/dt-bindings/led/led.h>
 
@@ -104,3 +105,24 @@
         };
 };
 
+/* USART */
+//&usart2 {
+//	status = "okay";
+//	pinctrl-0 = <&usart2_tx_pb3 &usart2_rx_pa15>;
+//	pinctrl-names = "default";
+	
+//	// According to "dmamux1" node under "stm32g4.dtsi", requires 3 cells.
+//	dmas = <&dmamux1 0 26 (STM32_DMA_PERIPH_RX | STM32_DMA_PRIORITY_HIGH) >, // Connecting USART2_RX (26) to channel 1 of DMA1
+//	       <&dmamux1 1 27 (STM32_DMA_PERIPH_TX | STM32_DMA_PRIORITY_HIGH) >; // Connecting USART2_RX (27) to channel 2 of DMA1
+	       
+//	dma-names = "rx", "tx";
+//};
+
+/* DMAs */
+//&dma1 {
+//	status = "okay";
+//};
+
+//&dmamux1 {
+//	status = "okay";
+//};

@@ -13,17 +13,6 @@ static int core_counter_ready = 0;
 
 // Work Items
 static struct k_work change_led_work;
-// The following embeds the work item to be put on the system
-// work queue when the motor alarm triggers into a larger structure
-// that includes the function pointer to the method that will 
-// transition the main State Machine into the "MOVE" state.
-// When the work handler is triggered, the function pointer can 
-// be accessed from within the work handler through the use of 
-// "CONTAINER_OF."
-static struct motor_alarm_fn_pntr_bundle{
-    struct k_work change_state_machine_work;
-    // TODO: Function pointer to change machine's state.
-} motor_alarm_bundle_inst; // Creates an instance of the struct.
 
 // Alarm configuration structs
 static struct counter_alarm_cfg led_alarm_cfg, motor_alarm_cfg;
@@ -62,6 +51,11 @@ static uint8_t core_timer_led_state = 0; // 1: On, 0: Off
 
 static uint32_t ttl_ticks_per_toggle_period;
 
+// A struct to be used in "motor_alarm_confg.user_data" that is subsequently
+// passed into "motor_alarm_cback" when the alarm times out.
+// Populated in "set_move_alarm"
+static struct move_alarm_data move_usr_data;
+
 //=============================================================================
 // Forward Declarations
 //=============================================================================
@@ -92,7 +86,6 @@ static void led_alarm_cback(const struct device *dev,
 {
     uint32_t ticks_on_nxt_alarm = ticks + ttl_ticks_per_toggle_period;
     uint32_t current_ticks;
-    uint64_t useconds;
     int ret;
 
     if(!core_counter_ready){
@@ -136,9 +129,6 @@ static void led_alarm_cback(const struct device *dev,
 	}
 
     LOG_INF("Next alarm will trigger in %u ticks", alrm_confg->ticks);
-
-    LOG_INF("852944759 ticks is = %lld microseconds", counter_ticks_to_us(dev, 852944759));
-    LOG_INF("853352718 ticks is = %lld microseconds", counter_ticks_to_us(dev, 853352718));
 }
 
 // Callback for motor move alarm
@@ -146,11 +136,19 @@ static void motor_alarm_cback(const struct device *dev,
                               uint8_t chan_id, uint32_t ticks, 
                               void *user_data)
 {
-    LOG_INF("Submitting work to change the state machine's state \
-            to MOVE on the system work queue.");
-    // Submit the work item that changes the state of the main
-    // state machine into the "MOVE" state onto the system queue.
-    k_work_submit(&motor_alarm_bundle_inst.change_state_machine_work);
+    LOG_INF("Move alarm timed out. Invoking sm_post_event with SM_EVENT_MOVE");
+
+    int ret;
+    struct move_alarm_data *user_data_p = (struct move_alarm_data *)user_data;
+
+    ret = user_data_p->post_event_fp(user_data_p->sm_p, user_data_p->event_s);
+
+    if(!ret){
+        LOG_ERR("Failed to post move motor event \
+                from move alarm callback on to event queue.");
+
+        user_data_p->sm_p = NULL;
+    }
 }
 
 
@@ -185,8 +183,6 @@ int core_counter_init(){// TODO: Fn pointer to state changing method.
 
     // Initializing work items.
     k_work_init(&change_led_work, _change_led_work_handler);
-    k_work_init(&motor_alarm_bundle_inst.change_state_machine_work, 
-                _change_state_machine_work_handler);
 
     // Initialize the LED alarm's configuration
     led_alarm_cfg.flags = LED_ALARM_FLAGS;
@@ -196,8 +192,8 @@ int core_counter_init(){// TODO: Fn pointer to state changing method.
 
     // Initialize the Motor's alarm configuration
     motor_alarm_cfg.flags = MOTOR_ALARM_FLAGS;
-    motor_alarm_cfg.callback = motor_alarm_cback; // TODO: To be implemented
-    motor_alarm_cfg.user_data = &motor_alarm_cfg; // Accessed within callback.
+    motor_alarm_cfg.callback = motor_alarm_cback;
+    //motor_alarm_cfg.user_data // To be populated later.
     motor_alarm_cfg.ticks = 0; // To be set by tick value sent from CAN
 
     // Based on the desired "LED_TOGGLE_PERIOD_US", calculate the corresponding
@@ -291,10 +287,18 @@ int reset_core_counter(){
            client sends a request to start moving the motors in a set tick 
            duration.
 */
-int set_move_alarm(uint32_t target_ticks){
-
+int set_move_alarm(int (*post_event_fp)(struct sm*, struct event_struct),
+                   struct sm *state_machine_p,
+                   struct event_struct event_s)
+{
     int ret;
     uint32_t current_ticks;
+
+
+    // Target ticks obtained directly from "motor_data.trgt_ticks"
+    //int64_t target_ticks = (int64_t)(((motor_data_t *)event_s.user_data)->trgt_ticks) + 
+    //                       (int64_t)counter_us_to_ticks(core_cntr_dev,2000);
+
 
     ret = counter_get_value(core_cntr_dev, &current_ticks);
 
@@ -302,6 +306,11 @@ int set_move_alarm(uint32_t target_ticks){
         LOG_ERR("Error (%d), could not get counter ticks.", ret);
         return -1;
     }
+
+    // (!) DELETE ME DURING DEPLOYMENT.
+    int64_t target_ticks = (int64_t)current_ticks + 
+                           (int64_t)counter_us_to_ticks(core_cntr_dev,1000);
+    // (!) DELETE ME DURING DEPLOYMENT.
 
     int64_t delta_ticks = (int64_t)target_ticks - (int64_t)current_ticks; 
 
@@ -315,7 +324,13 @@ int set_move_alarm(uint32_t target_ticks){
         return 0;
     }
 
+    // Populate move_usr_data global variable.
+    move_usr_data.post_event_fp = post_event_fp;
+    move_usr_data.sm_p = state_machine_p;
+    move_usr_data.event_s = event_s;
+
     motor_alarm_cfg.ticks = (uint32_t)delta_ticks; 
+    motor_alarm_cfg.user_data = &move_usr_data; 
 
     ret = counter_set_channel_alarm(core_cntr_dev, MOTOR_ALRM_CHAN_ID,
                                     &motor_alarm_cfg);
@@ -350,6 +365,15 @@ int64_t get_current_ticks(){
     }
     else{
         return -1;
+    }
+}
+
+uint32_t get_ticks_from_us(uint64_t us){
+    if(!us){
+        return 0;
+    }
+    else{
+        return counter_us_to_ticks(core_cntr_dev, us);
     }
 }
 
@@ -419,22 +443,4 @@ void _change_led_work_handler(struct k_work *work)
     gpio_pin_toggle_dt(&timer_led);
 
     core_timer_led_state = !core_timer_led_state;
-}
-
-// Handler for "change_state_machine_work" item.
-void _change_state_machine_work_handler(struct k_work *work)
-{
-    // Get access to the larger data structure embedding
-    // the "change_state_machine_work" item to gain access
-    // to the method - through a function pointer - to
-    // change the state of the state machine to "MOVE".
-    struct motor_alarm_fn_pntr_bundle *bundle =
-        CONTAINER_OF(work, 
-                    struct motor_alarm_fn_pntr_bundle,
-                    change_state_machine_work);
-    
-    // TODO: Invoke the bundled function pointer.
-
-                    
-    LOG_INF("Change state machine to MOVE state.");
 }

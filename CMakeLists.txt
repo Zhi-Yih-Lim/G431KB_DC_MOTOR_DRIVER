@@ -13,4 +13,6 @@ target_sources(app PRIVATE
 	src/TIMER/main_timer.c
 	src/STATE_MACHINE/state_machine.c
 	src/STAT_RGB/status_rgb.c
+	src/PID/pid.c
+	#src/UART/uart.c
 )

@@ -6,7 +6,7 @@
 
 #define CAN_TID_SIZE 1 // Number of bytes for the 'Target ID' field in 'data'
 #define CAN_ACTION_SIZE 2 // Number of bytes for the 'Action' command in 'data'
-#define CAN_RAW_DATA_SIZE 4 // Number of bytes for the raw data field in 'data'
+#define CAN_ACT_DATA_SIZE 4 // Number of bytes for the actual data field in 'data'
 #define CAN_TICK_DATA_SIZE 4 // Number of bytes required to store the counter's ticks
 #define CAN_DATA_SIZE 12 // Next largest DLC after 11 - Total data lenght so far.
 

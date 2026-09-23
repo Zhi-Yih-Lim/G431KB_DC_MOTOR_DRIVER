@@ -1,11 +1,11 @@
 #ifndef QDEC_H
 #define QDEC_H
 
+#include <zephyr/drivers/sensor.h>
 // ============================================================================
 // Functions
 // ============================================================================
-void qdec_init(); // QDEC initializer function
-void qdec_read_angle(); // Perform a readout on the displaced angle
-void reset_angle(); // Reset the angular displacement counter
+int qdec_init(); // QDEC initializer function
+int qdec_read_angle(struct sensor_value *deg); // Perform a readout on the displaced angle
 
 #endif
