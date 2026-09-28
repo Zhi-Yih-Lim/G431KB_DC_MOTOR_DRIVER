@@ -3,10 +3,11 @@
 
 #include <zephyr/drivers/can.h> // Main needs to use "struct can_frame"
 
-extern struct k_msgq can_rx_msgq;
+struct sm; // Forward declaration.
 
 int fdcan_init();
 int fd_can_start();
+int fd_can_begin_rx_processor(struct sm *sm_p);
 int fd_can_send(const uint8_t *data_2_send, 
                 char *data_type);
 

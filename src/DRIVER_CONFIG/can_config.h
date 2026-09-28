@@ -10,4 +10,21 @@
 #define CAN_TICK_DATA_SIZE 4 // Number of bytes required to store the counter's ticks
 #define CAN_DATA_SIZE 12 // Next largest DLC after 11 - Total data lenght so far.
 
+// Macros for the TX and RX message queues
+#define CAN_RX_MSGQ_LEN 10
+#define CAN_TX_MSGQ_LEN 10
+
+#define CAN_TX_FLAGS CAN_FRAME_FDF|CAN_FRAME_BRS
+
+// Macros for the RX thread accepting CAN messages
+#define CAN_RX_THREAD_STACK_SIZE 1024 // Static area allocated for thread that 
+                                              // processes incoming CAN data.
+#define CAN_RX_THREAD_PRIORITY 4 // Priority of thread processing incoming CAN
+                                         // data.
+
+// Macros for the TX thread sending out CAN messages
+#define CAN_TX_THREAD_STACK_SIZE 1024 // Area to be allocated for thread that 
+                                              // handles outgoing data.
+#define CAN_TX_THREAD_PRIORITY 4 // Priority of thread handling outgoing data.
+
 #endif

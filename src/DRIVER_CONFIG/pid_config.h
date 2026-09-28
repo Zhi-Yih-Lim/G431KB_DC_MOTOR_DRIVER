@@ -25,4 +25,7 @@
 // Refresh rate of PD controller
 #define PD_REFR_US 100
 
+#define PD_THREAD_STACK_SIZE 1024
+#define PD_THREAD_PRIORITY 3 // Highest priority under main.
+
 #endif

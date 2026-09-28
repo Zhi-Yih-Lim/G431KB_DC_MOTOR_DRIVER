@@ -88,12 +88,13 @@ int pwm_init(){
     }
     else{
         LOG_INF("PWM device found\n");
-        return 1;
     }
 
     _init_pwm();
     
     pwm_ready = 1;
+
+    return 1;
 }
 
 int pwm_actuate(int64_t pid_output)

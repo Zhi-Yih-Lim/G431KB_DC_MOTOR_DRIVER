@@ -30,8 +30,6 @@ static struct k_spinlock glob_ang_vel_slock; // Angular velocity value populated
 #define SM_THREAD_STACK_SIZE 2048
 #define SM_THREAD_PRIORITY 5
 
-#define PD_THREAD_STACK_SIZE 1024
-#define PD_THREAD_PRIORITY 3 // Highest priority under main.
 
 // ============================================================================
 // Static memory allocation for threads
@@ -301,7 +299,7 @@ static void _sm_get_ticks_entry(struct sm *sm)
 
     ret = fd_can_send(can_out_data_arr, "Counter Ticks");
 
-    if(ret){
+    if(!ret){
         LOG_ERR("Error [%d] sending out CAN message.", ret);
         _sm_error_entry(sm);
     }
@@ -418,7 +416,7 @@ static void _pid_thread_task(void *p1, void *p2, void *p3)
         if(trgt_ang_vel_scaled != glob_angular_vel_scaled){
             // Attempt to acquire the spinlock guarding
             // "glob_angular_vel_scaled" in a non-blocking fashion.
-            if(k_spin_trylock(&glob_ang_vel_slock, &slock_key) == 0){
+            if(!k_spin_trylock(&glob_ang_vel_slock, &slock_key)){
                 trgt_ang_vel_scaled = glob_angular_vel_scaled;
                 k_spin_unlock(&glob_ang_vel_slock, slock_key);
             }
