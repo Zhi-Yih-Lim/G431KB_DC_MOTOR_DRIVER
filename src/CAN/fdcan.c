@@ -6,13 +6,22 @@
 
 LOG_MODULE_REGISTER(fdcan, 3); // Info level
 
+// ============================================================================
+// Macros
+// ============================================================================
+#define CAN_DTS_NODE DT_NODELABEL(fdcan1);
+/* Number of TX mailboxes */
+#define NUM_OF_TX_BUFF DT_PROP_BY_IDX(CAN_DTX_NODE, bosch_mram_cfg, 7);
 
 // Initialize the tx & rx message queue
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
 K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct can_frame), CAN_TX_MSGQ_LEN, 1);
 
+// ============================================================================
 // Const variables
-static const struct device *const fdcan_dev = DEVICE_DT_GET(DT_NODELABEL(fdcan1));
+// ============================================================================
+static const struct device *const fdcan_dev = DEVICE_DT_GET(
+                                                DT_NODELABEL(fdcan1));
 const struct can_filter rx_filter = {
     .flags = 0U, // Matches frames with 11-bit IDs.
     .id = CENTRAL_CAN_ID, // Accepts data from CAN ID 0x100
@@ -21,10 +30,12 @@ const struct can_filter rx_filter = {
 };
 
 // A statically global 'can_frame' to store outgoing data.
+/*
 static struct can_frame out_data = {
         .flags = CAN_TX_FLAGS,
         .id = LOCAL_CAN_ID
 };
+*/
 
 // TX and RX threads related
 K_THREAD_STACK_DEFINE(rx_stack_area, CAN_RX_THREAD_STACK_SIZE);
@@ -33,10 +44,24 @@ static struct k_thread rx_thread, tx_thread;
 static k_tid_t rx_tid, tx_tid;
 
 // Function forward declarations
-void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data);
-void tx_callback(const struct device *dev, int error, void *user_data);
+void _can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data);
+void _can_tx_callback(const struct device *dev, int error, void *user_data);
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3);
+void _can_tx_thread_entry_func(void *p1, void *p2, void *p3);
 
+// ============================================================================
+// Mutexes and Semaphores
+// ============================================================================
+K_SEM_DEFINE(can_tx_sem, 0, num_of_tx_buff);
+
+// ============================================================================
+// Statically global variable
+// ============================================================================
+static struct can_frame tx_data_arr[NUM_OF_TX_BUFF]; // can_tx_sem indexed
+
+// ============================================================================
+// Public APIs
+// ============================================================================
 /*
     @Brief: Checks that the FDCAN device is ready and assigns an rx filter
 
@@ -60,7 +85,7 @@ int fdcan_init(){
     // Set up receiving filter and callback
     int filter_id;
 
-    filter_id = can_add_rx_filter(fdcan_dev, can_rx_callback, NULL, &rx_filter);
+    filter_id = can_add_rx_filter(fdcan_dev, _can_rx_callback, NULL, &rx_filter);
 
     if(filter_id < 0){
         LOG_ERR("fdcan_init -> Unable to add rx_filter.\r\n");
@@ -69,6 +94,14 @@ int fdcan_init(){
     else{
         LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
     }
+
+    // Begin thread for sending out CAN data
+    tx_tid = k_thread_create(&tx_thread, tx_stack_area,
+                             K_THREAD_STACK_SIZEOF(tx_stack_area),
+                             _can_tx_thread_entry_func,
+                             NULL, NULL, NULL,
+                             CAN_TX_THREAD_PRIORITY,
+                             0, K_NO_WAIT);
 
     return 1;
     
@@ -97,24 +130,14 @@ int fd_can_start(){
     return 1;
 }
 
-/* Function definitions */
+/*
+    @Brief: Initializing method that starts the can rx thread after
+            initialization of state machine pointer.
 
-// Callback for receiving messages (ISR context)
-void can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data){
+    @param sm_p: Initialized "struct sm *"
 
-    ARG_UNUSED(user_data);
-    
-    int ret = k_msgq_put(&can_rx_msgq, (void *)frame, K_NO_WAIT);
-
-    LOG_INF("CAN MSG received");
-
-    if(ret < 0){
-        k_msgq_put(&can_rx_msgq, NULL, K_NO_WAIT); // Error condition.
-    }
-}
-
-// Function that spawns the CAN RX processing thread after the state
-// machine has been initialized.
+    @return: 0 -> Failed ; 1 -> Success
+*/
 int fd_can_begin_rx_processor(struct sm *sm_p)
 {
     if(!sm_p){
@@ -146,10 +169,15 @@ int fd_can_send(const uint8_t *data_2_send,
 
     // Set contents to send out
     memcpy(out_data.data, data_2_send, CAN_DATA_SIZE);
+
+    // TODO: Put outgoing message into message queue.
+    //       Avoid using "out_data" as it may be 
+    //       overwritten before being sent out.
     
     // Blocks until TX mailbox is assigned or error occured. Does not 
     // wait for acknowledgement of reception of outgoing message.
-    ret = can_send(fdcan_dev, &out_data, K_FOREVER, tx_callback, data_type);
+    ret = can_send(fdcan_dev, &out_data, K_FOREVER, _can_tx_callback, 
+                   data_type);
 
     if (ret != 0){
         LOG_ERR("Failed to send CAN message, Error [%d].", ret);
@@ -162,7 +190,25 @@ int fd_can_send(const uint8_t *data_2_send,
 }
 
 
-void tx_callback(const struct device *dev, int error, void *user_data){
+// ============================================================================
+// Internal functions
+// ============================================================================
+
+// Callback for receiving messages (ISR context)
+void _can_rx_callback(const struct device *dev, struct can_frame *frame, 
+                      void *user_data){
+    ARG_UNUSED(user_data);
+    
+    int ret = k_msgq_put(&can_rx_msgq, (void *)frame, K_NO_WAIT);
+
+    LOG_INF("CAN MSG received");
+
+    if(ret < 0){
+        k_msgq_put(&can_rx_msgq, NULL, K_NO_WAIT); // Error condition.
+    }
+}
+
+void _can_tx_callback(const struct device *dev, int error, void *user_data){
     char *sender = (char *)user_data;
 
     if (error != 0){
@@ -170,13 +216,21 @@ void tx_callback(const struct device *dev, int error, void *user_data){
     }
 }
 
+void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
+{
+    int ret;
 
-// Internal functions
+    // TODO
+    while(1){
+        ret = k_msgq_get(&can_tx_msgq, , K_FOREVER);
+
+    }
+
+}
+
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 {
     struct sm *sm_p = (struct sm*)p1;
-
-    // TODO: Change all references to state machine into sm_p
 
     int ret;
     static struct can_frame t_arr[1];// Assigning static space for pointer 
@@ -202,7 +256,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
         if(ret < 0){
             LOG_ERR("Error %d getting data from can_rx_msgq.", ret);
             event_s.event = SM_EVENT_ERROR;
-            sm_post_event(state_machine_p, event_s);
+            sm_post_event(sm_p, event_s);
         }
         else{
             if(can_dlc_to_bytes(can_data_struct_p->dlc) != CAN_DATA_SIZE){
@@ -241,30 +295,30 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                     continue;
                 }
 
-                if(state_machine_p){
+                if(sm_p){
                     switch(action_arr[0]){
                         case 'S': // Stop command
                             event_s.event = SM_EVENT_STOP_MOTOR;
-                            ret = sm_post_event(state_machine_p,
+                            ret = sm_post_event(sm_p,
                                                 event_s);
                                                 
                             if(!ret){
                                 LOG_ERR("Failed to post stop motor event \
                                         on to event queue.");
 
-                                state_machine_p = NULL;
+                                sm_p = NULL;
                             }
                             break;
                         case 'R': // Reset counter command 
                             event_s.event = SM_EVENT_COUNTER_RESET;
-                            ret = sm_post_event(state_machine_p, 
+                            ret = sm_post_event(sm_p, 
                                                 event_s);
 
                             if(!ret){
                                 LOG_ERR("Failed to post counter reset event \
                                         on to event queue.");
 
-                                state_machine_p = NULL;
+                                sm_p = NULL;
                             }
                             break;
                         case 'M': // Move command
@@ -326,18 +380,20 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                                     LOG_INF("Motor moving clockwise.");
                                     m_data.direction = 0;
                                     event_s.event = SM_EVENT_SCHED_MOVE;
+                                    // TODO: Do not pass by ref.
                                     // (!) "m_data" passed by ref
                                     event_s.user_data = (void *)&m_data;
-                                    ret = sm_post_event(state_machine_p, 
+                                    ret = sm_post_event(sm_p, 
                                                         event_s);
                                     break;
                                 case 'B': // Counter-clockwise
                                     LOG_INF("Motor moving counter-clockwise.");
                                     m_data.direction = 1;
                                     event_s.event = SM_EVENT_SCHED_MOVE;
+                                    // TODO: Do not pass by ref.
                                     // (!) "m_data" passed by ref
                                     event_s.user_data = (void *)&m_data;
-                                    ret = sm_post_event(state_machine_p, event_s);
+                                    ret = sm_post_event(sm_p, event_s);
                                     break;
                             }
                             break;
@@ -345,13 +401,13 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                             switch(action_arr[1]){
                                 case 'T': // Get counter ticks
                                     event_s.event = SM_EVENT_COUNTER_RESET;
-                                    ret = sm_post_event(state_machine_p, event_s);
+                                    ret = sm_post_event(sm_p, event_s);
                                     
                                     if(!ret){
                                         LOG_ERR("Failed to post counter reset event on to \
                                                 event queue.");
 
-                                        state_machine_p = NULL;
+                                        sm_p = NULL;
                                     }
                                     break;
                             }

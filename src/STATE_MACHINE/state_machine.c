@@ -306,6 +306,7 @@ static void _sm_get_ticks_entry(struct sm *sm)
 
     _sm_idle_entry(sm);
 }
+
 static void _sm_error_entry(struct sm *sm)
 {
     if(sm->state != SM_STATE_ERROR){

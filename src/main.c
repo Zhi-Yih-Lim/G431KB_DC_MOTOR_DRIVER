@@ -143,8 +143,11 @@ int _init_components()
         return ret;
     }
 
-    // TODO: INVOKE int fd_can_begin_rx_processor(struct sm *sm_p)
-    //       to begin RX processing thread.
+    ret &= fd_can_begin_rx_processor(state_machine_p);
+    if(!ret){
+        LOG_ERR("Failed to start can rx processing thread.");
+        return ret;
+    }
 
     ret &= status_rgb_init();
     if(!ret){

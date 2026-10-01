@@ -1,0 +1,9 @@
+tests:
+  motor_driver.state_machine.transitions:
+    platform_allow:
+      - qemu_cortex_m3
+    integration_platforms: # Used when using '--integration' option when running twister.
+      - qemu_cortex_m3
+    tags:
+      - state_machine
+    harness: ztest
