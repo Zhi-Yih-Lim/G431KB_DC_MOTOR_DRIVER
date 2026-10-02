@@ -12,10 +12,27 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 #define CAN_DTS_NODE DT_NODELABEL(fdcan1);
 /* Number of TX mailboxes */
 #define NUM_OF_TX_BUFF DT_PROP_BY_IDX(CAN_DTX_NODE, bosch_mram_cfg, 7);
+/* Initializer for outgoing CAN frame */
+#define CAN_OUT_INIT {.flags = CAN_TX_FLAGS, .id = LOCAL_CAN_ID};
 
+// ============================================================================
+// Custom local definitions
+// ============================================================================
+static struct out_data_group{
+    struct can_frame can_data;
+    int idx;
+};
+
+// ============================================================================
+// Compile time calls
+// ============================================================================
 // Initialize the tx & rx message queue
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
-K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct can_frame), CAN_TX_MSGQ_LEN, 1);
+K_MSGQ_DEFINE(can_tx_msgq, sizeof(int), CAN_TX_MSGQ_LEN, 1);
+
+// TX and RX threads related
+K_THREAD_STACK_DEFINE(rx_stack_area, CAN_RX_THREAD_STACK_SIZE);
+K_THREAD_STACK_DEFINE(tx_stack_area, CAN_TX_THREAD_STACK_SIZE);
 
 // ============================================================================
 // Const variables
@@ -29,25 +46,14 @@ const struct can_filter rx_filter = {
     //.mask = 0U
 };
 
-// A statically global 'can_frame' to store outgoing data.
-/*
-static struct can_frame out_data = {
-        .flags = CAN_TX_FLAGS,
-        .id = LOCAL_CAN_ID
-};
-*/
-
-// TX and RX threads related
-K_THREAD_STACK_DEFINE(rx_stack_area, CAN_RX_THREAD_STACK_SIZE);
-K_THREAD_STACK_DEFINE(tx_stack_area, CAN_TX_THREAD_STACK_SIZE);
-static struct k_thread rx_thread, tx_thread;
-static k_tid_t rx_tid, tx_tid;
-
-// Function forward declarations
+// ============================================================================
+// Forward declarations
+// ============================================================================
 void _can_rx_callback(const struct device *dev, struct can_frame *frame, void *user_data);
 void _can_tx_callback(const struct device *dev, int error, void *user_data);
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3);
 void _can_tx_thread_entry_func(void *p1, void *p2, void *p3);
+void _reinit_out_data_el(int el);
 
 // ============================================================================
 // Mutexes and Semaphores
@@ -57,7 +63,12 @@ K_SEM_DEFINE(can_tx_sem, 0, num_of_tx_buff);
 // ============================================================================
 // Statically global variable
 // ============================================================================
-static struct can_frame tx_data_arr[NUM_OF_TX_BUFF]; // can_tx_sem indexed
+// Array that stores outgoing data struct.
+static struct out_data_group tx_data_arr[NUM_OF_TX_BUFF];
+
+// TX and RX threads related.
+static struct k_thread rx_thread, tx_thread;
+static k_tid_t rx_tid, tx_tid;
 
 // ============================================================================
 // Public APIs
@@ -94,14 +105,6 @@ int fdcan_init(){
     else{
         LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
     }
-
-    // Begin thread for sending out CAN data
-    tx_tid = k_thread_create(&tx_thread, tx_stack_area,
-                             K_THREAD_STACK_SIZEOF(tx_stack_area),
-                             _can_tx_thread_entry_func,
-                             NULL, NULL, NULL,
-                             CAN_TX_THREAD_PRIORITY,
-                             0, K_NO_WAIT);
 
     return 1;
     
@@ -152,7 +155,15 @@ int fd_can_begin_rx_processor(struct sm *sm_p)
                              CAN_RX_THREAD_PRIORITY,
                              0, K_NO_WAIT);
 
-    LOG_INF("CAN RX thread started.");
+
+    tx_tid = k_thread_create(&tx_thread, tx_stack_area,
+                             K_THREAD_STACK_SIZEOF(tx_stack_area),
+                             _can_tx_thread_entry_func,
+                             sm_p, NULL, NULL,
+                             CAN_TX_THREAD_PRIORITY,
+                             0, K_NO_WAIT);
+
+    LOG_INF("CAN TX & RX threads started.");
 
     return 1;
 }
@@ -173,18 +184,12 @@ int fd_can_send(const uint8_t *data_2_send,
     // TODO: Put outgoing message into message queue.
     //       Avoid using "out_data" as it may be 
     //       overwritten before being sent out.
+    // TODO: Message put on the message queue should contain pointer
+    //       to the state machine instance in the event of failure of 
+    //       sending out message.
     
-    // Blocks until TX mailbox is assigned or error occured. Does not 
-    // wait for acknowledgement of reception of outgoing message.
-    ret = can_send(fdcan_dev, &out_data, K_FOREVER, _can_tx_callback, 
-                   data_type);
 
-    if (ret != 0){
-        LOG_ERR("Failed to send CAN message, Error [%d].", ret);
-        return 0;
-    }
 
-    LOG_INF("CAN successfully sent message");
 
     return 1;
 }
@@ -209,23 +214,59 @@ void _can_rx_callback(const struct device *dev, struct can_frame *frame,
 }
 
 void _can_tx_callback(const struct device *dev, int error, void *user_data){
-    char *sender = (char *)user_data;
+    static int tx_arr_idx = 0;
 
-    if (error != 0){
-        LOG_ERR("fdcan_txcallback -> Sending failed [%d]. Sender: %s\r\n", error, sender);
+    // TODO: USE goto for the error case.
+
+    // Get the pointer to the element in "tx_data_arr" whose data has been sent
+    struct out_data_group *out_data_p = (struct out_data_group *)user_data;
+
+    // Get the index to the element in the array.
+    tx_arr_idx = out_data_p->idx;
+    
+    // TODO: If error present, need state machine pointer to throw error
+    if(error){
+        LOG_ERR("Sending failed for element %d of tx_data_arr. Error [%d].", 
+                ret);
     }
+    else{
+        LOG_INF("Successfully sent message for element %d of tx_data_arr.",
+                tx_arr_idx);
+    }
+
+    // Re-initialize that element in the array
+    _reinit_out_data_el(tx_arr_idx);
+
+    // Give semaphore to indicate that a mailbox is ready
+    k_sem_give(&can_tx_sem);
+
 }
 
 void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
 {
-    int ret;
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
 
-    // TODO
+    int ret;
+    int tx_arr_idx;
+    struct sm *sm_p = (struct sm*)p1;
+
     while(1){
-        ret = k_msgq_get(&can_tx_msgq, , K_FOREVER);
+        ret = k_msgq_get(&can_tx_msgq, &tx_arr_idx, K_FOREVER);
+
+        if(ret){
+            LOG_ERR("Error %d getting data from can_tx_msgq.", ret);
+            event_s.event = SM_EVENT_ERROR;
+            sm_post_event(sm_p, event_s);
+        }
+
+        // Send out can message (mailbox acquisition guaranteed)
+        ret = can_send(fdcan_dev, 
+                       &(*(tx_data_arr+tx_arr_idx)).can_data,
+                       K_FOREVER, tx_callback, 
+                       (void *)(tx_data_arr+tx_arr_idx));
 
     }
-
 }
 
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
@@ -425,4 +466,16 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             }
         }
     }    
+}
+
+// ============================================================================
+// Helper methods
+// ============================================================================
+void _reinit_out_data_el(int el)
+{
+   // Set the 'idx' member to be -1 
+   tx_data_arr[el].idx = -1;
+
+   // Zero out all of the members of 'can_data' member. 
+   tx_data_arr[el].can_data = (struct can_frame){0};
 }
