@@ -1,6 +1,7 @@
 #include <string.h>
 #include <zephyr/fff.h> // Zephyr's Fake Function Framework.
 #include <zephyr/ztest.h>
+#include <zephyr/sys/byteorder.h>
 
 // To access the private "_sm_thread_dispatch()" method that
 // handles state machine transitions.
@@ -104,6 +105,12 @@ static void before(void *fixture)
 // ============================================================================
 ZTEST(state_machine, test_idle_to_send_ticks_on_ticks_command)
 {
+    uint8_t action_arr[3] = {0};
+    uint8_t data[4];
+    uint8_t ticks_arr[4];
+    uint32_t ticks;
+    uint32_t ticks_ref = 0x12345678;
+
     // See if the state machine is originally in "IDLE" state
     zassert_equal(sm_get_state(&machine), SM_STATE_IDLE,
                   "Precondition: state must be IDLE.");
@@ -136,6 +143,25 @@ ZTEST(state_machine, test_idle_to_send_ticks_on_ticks_command)
 
     zassert_equal(fd_can_send_fake.arg0_val[0], CENTRAL_CAN_ID,
                   "First element of output array should be the central CAN ID.");
+
+    memcpy(action_arr, (fd_can_send_fake.arg0_val)+1, 2);
+    action_arr[2] = '\0';
+
+    zassert_str_equal(action_arr, "TT", 
+                      "Action command must be \"TT\"");
+
+    memcpy(data, (fd_can_send_fake.arg0_val)+3, 4);
+
+    zassert_mem_equal(data, (uint8_t[4]){0}, 4,
+                      "Data section must be zeros.");
+
+    memcpy(ticks_arr, (fd_can_send_fake.arg0_val)+7, 4);
+    
+    // 'sys_get_be32' reads 4 bytes from a source array and returns a uint32_t.
+    ticks = sys_get_be32(ticks_arr);
+
+    zassert_equal(ticks, ticks_ref,
+                  "Ticks extracted from array sent not equal to intended val.");
 
 
 }
