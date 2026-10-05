@@ -284,6 +284,7 @@ static void _sm_get_ticks_entry(struct sm *sm)
     // Unpack a 32-bit counter value into 4, 8-bit values (Big Endian) 
     get_current_ticks_unpacked(unpacked_counter_ticks);
 
+    // TODO: Modify ?
     // Outgoing data frame
     can_out_data_arr[0] = CENTRAL_CAN_ID;
     can_out_data_arr[1] = 0x54; //"T"

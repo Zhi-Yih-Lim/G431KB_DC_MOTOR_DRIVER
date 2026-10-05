@@ -3,6 +3,7 @@
 #include <zephyr/kernel.h>
 #include <stdlib.h>
 #include <zephyr/logging/log.h>
+#include "../types.h"
 
 LOG_MODULE_REGISTER(fdcan, 3); // Info level
 
@@ -11,7 +12,7 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 // ============================================================================
 #define CAN_DTS_NODE DT_NODELABEL(fdcan1);
 /* Number of TX mailboxes */
-#define NUM_OF_TX_BUFF DT_PROP_BY_IDX(CAN_DTX_NODE, bosch_mram_cfg, 7);
+#define NUM_OF_TX_BUFF DT_PROP_BY_IDX(CAN_DTS_NODE, bosch_mram_cfg, 7);
 /* Initializer for outgoing CAN frame */
 #define CAN_OUT_INIT {.flags = CAN_TX_FLAGS, .id = LOCAL_CAN_ID};
 
@@ -21,6 +22,12 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 static struct out_data_group{
     struct can_frame can_data;
     int idx;
+    struct sm* sm_p;
+};
+
+static struct tx_msgq_element{
+    uint8_t out_data_arr[CAN_MAX_DLEN];
+    size_t data_len;
 };
 
 // ============================================================================
@@ -28,7 +35,7 @@ static struct out_data_group{
 // ============================================================================
 // Initialize the tx & rx message queue
 K_MSGQ_DEFINE(can_rx_msgq, sizeof(struct can_frame), CAN_RX_MSGQ_LEN, 1);
-K_MSGQ_DEFINE(can_tx_msgq, sizeof(int), CAN_TX_MSGQ_LEN, 1);
+K_MSGQ_DEFINE(can_tx_msgq, sizeof(struct tx_msgq_element), CAN_TX_MSGQ_LEN, 1);
 
 // TX and RX threads related
 K_THREAD_STACK_DEFINE(rx_stack_area, CAN_RX_THREAD_STACK_SIZE);
@@ -37,8 +44,7 @@ K_THREAD_STACK_DEFINE(tx_stack_area, CAN_TX_THREAD_STACK_SIZE);
 // ============================================================================
 // Const variables
 // ============================================================================
-static const struct device *const fdcan_dev = DEVICE_DT_GET(
-                                                DT_NODELABEL(fdcan1));
+static const struct device *const fdcan_dev = DEVICE_DT_GET(CAN_DTS_NODE);
 const struct can_filter rx_filter = {
     .flags = 0U, // Matches frames with 11-bit IDs.
     .id = CENTRAL_CAN_ID, // Accepts data from CAN ID 0x100
@@ -58,7 +64,7 @@ void _reinit_out_data_el(int el);
 // ============================================================================
 // Mutexes and Semaphores
 // ============================================================================
-K_SEM_DEFINE(can_tx_sem, 0, num_of_tx_buff);
+K_SEM_DEFINE(can_tx_sem, 0, NUM_OF_TX_BUFF);
 
 // ============================================================================
 // Statically global variable
@@ -215,19 +221,26 @@ void _can_rx_callback(const struct device *dev, struct can_frame *frame,
 
 void _can_tx_callback(const struct device *dev, int error, void *user_data){
     static int tx_arr_idx = 0;
-
-    // TODO: USE goto for the error case.
+    static struct sm *sm_p = NULL;
+    static struct event_struct event_s = {0};
 
     // Get the pointer to the element in "tx_data_arr" whose data has been sent
     struct out_data_group *out_data_p = (struct out_data_group *)user_data;
 
     // Get the index to the element in the array.
     tx_arr_idx = out_data_p->idx;
-    
-    // TODO: If error present, need state machine pointer to throw error
+
+    // Get the pointer to the state machine instance
+    if(!sm_p){
+        sm_p = out_data_p->sm_p;
+    }
+
+    // If error present, need state machine pointer to throw error
     if(error){
         LOG_ERR("Sending failed for element %d of tx_data_arr. Error [%d].", 
-                ret);
+                error);
+        event_s.event = SM_EVENT_ERROR;
+        sm_post_event(sm_p, event_s);
     }
     else{
         LOG_INF("Successfully sent message for element %d of tx_data_arr.",
@@ -250,21 +263,30 @@ void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
     int ret;
     int tx_arr_idx;
     struct sm *sm_p = (struct sm*)p1;
+    static struct can_frame can_data = {0};
+    struct event_struct event_s;
 
     while(1){
-        ret = k_msgq_get(&can_tx_msgq, &tx_arr_idx, K_FOREVER);
+        // Check to see if mailbox available. If not wait until available.
+        // Send next message in FIFO manner from 'can_tx_msgq'.
+        if(!k_sem_take(&can_tx_sem, K_FOREVER)){
 
-        if(ret){
-            LOG_ERR("Error %d getting data from can_tx_msgq.", ret);
-            event_s.event = SM_EVENT_ERROR;
-            sm_post_event(sm_p, event_s);
+            ret = k_msgq_get(&can_tx_msgq, &tx_arr_idx, K_FOREVER);
+
+            if(ret){
+                LOG_ERR("Error %d getting data from can_tx_msgq.", ret);
+                event_s.event = SM_EVENT_ERROR;
+                sm_post_event(sm_p, event_s);
+            }
+
+            // Copy data 
+
+            // Send out can message (mailbox acquisition guaranteed)
+            ret = can_send(fdcan_dev, 
+                           &(*(tx_data_arr+tx_arr_idx)).can_data,
+                           K_FOREVER, _can_tx_callback, 
+                           (void *)(tx_data_arr+tx_arr_idx));
         }
-
-        // Send out can message (mailbox acquisition guaranteed)
-        ret = can_send(fdcan_dev, 
-                       &(*(tx_data_arr+tx_arr_idx)).can_data,
-                       K_FOREVER, tx_callback, 
-                       (void *)(tx_data_arr+tx_arr_idx));
 
     }
 }
