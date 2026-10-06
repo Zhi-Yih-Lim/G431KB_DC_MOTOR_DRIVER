@@ -463,11 +463,11 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                         case 'G': // Get data from driver
                             switch(action_arr[1]){
                                 case 'T': // Get counter ticks
-                                    event_s.event = SM_EVENT_COUNTER_RESET;
+                                    event_s.event = SM_EVENT_SEND_TICKS;
                                     ret = sm_post_event(sm_p, event_s);
                                     
                                     if(!ret){
-                                        LOG_ERR("Failed to post counter reset event on to \
+                                        LOG_ERR("Failed to post send ticks event on to \
                                                 event queue.");
 
                                         sm_p = NULL;
