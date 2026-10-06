@@ -13,23 +13,24 @@ An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, explo
 | Coordination | Queued state-machine events and motor alarms |
 | Observability | Zephyr logging, heartbeat GPIO for timer and WS2812 status pixel for state-machine |
 | Unit testing | Using ZTEST framework for state-machine transition testing |
+| Debugging | Zephyr logging, OpenOCD + GDB, DMM, Oscilloscope |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Host[Central controller] -->|CAN FD commands| RX[RX callback and queue]
-    RX --> Worker[CAN command worker]
+    Host[Central controller] -->|CAN FD commands| RX[Callback and enqueue message]
+    RX --> Worker[RX message processing worker, generating pre-defined events]
     Worker --> Events[State-machine event queue]
     Events --> SM[State machine]
-    SM --> Alarm[TIM2 move alarm]
+    SM --> Alarm[Schedule move alarm on TIM2]
     Alarm -->|MOVE event| Events
-    SM --> Control[Controller thread: in progress]
-    Encoder[TIM3 encoder angle] --> Control
-    Control --> PWM[TIM4 PWM]
+    SM --> Control[Controller thread: PI controller in progress]
+    Encoder[Poll encoder angle] --> Control
+    Control --> PWM[PWM motor control on TIM4]
     PWM --> Driver[DRV8871 motor driver]
-    SM --> RGB[WS2812 status]
+    SM --> RGB[Visualize State machine status via WS2812]
     SM --> TX[CAN tick response: TX unfinished]
 ```
 
-The design moves command processing out of the CAN receive callback into a worker thread. A separate event consumer coordinates actions, while motor control has its own thread. Static buffers and stacks avoid application-side dynamic allocation but currently limit the design to one state-machine instance. Event payload pointers are borrowed; their lifetime and reuse remain an integration concern.
+Received CAN RX messages are added onto a message queue to which an RX processing thread dequeues and generates relevant events onto a separate event processing message queue. State machine consumes new events posted on this event queue and transitions into the appropriate state, executing relevant state actions through entry and exit functions. Motor control performed in a dedicated high-priority thread, polling angular displacement of the DC motor through QDEC, calculating the actuation signal through an angular velocity PID controller and actuating the DRV8871 module through the PWM peripheral. 
