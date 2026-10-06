@@ -7,7 +7,13 @@ An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, explo
 ## Development Progress
 | Module | Status |
 | --- | --- |
-| CAN | :hourglass_flowing_sand: In Progress|
+| CAN | :hourglass_flowing_sand: In Progress |
+| State Machine | :hourglass_flowing_sand: In Progress |
+| | <table>  <thead>  <tr>  <th>Sub-feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving received messages to kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
+| PID Controller | :hourglass_flowing_sand: In Progress |
+| PWM Actuation | :hourglass_flowing_sand: In Progress |
+| QDEC Readout | :hourglass_flowing_sand: In Progress |
+| WS2812 Status RGB | :white_check_mark: Completed |
 
 ## System Overview
 
