@@ -4,7 +4,7 @@ An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, explo
 
 **Development status: in progress.** Peripheral interfaces and event-processing paths are present, but integration is still incomplete. CANFD reception transmission is working. UART is a placeholder.
 
-| Area | Hardware/ Peripheral Implementation |
+| Area | Details |
 | --- | --- |
 | Platform | STM32G431KB / Nucleo-G431KB; Zephyr C application |
 | Motor interface | PWM on TIM4 channels 1 and 2 controlling DRV8871 motor driver|
