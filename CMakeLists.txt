@@ -14,5 +14,6 @@ target_sources(app PRIVATE
 	src/STATE_MACHINE/state_machine.c
 	src/STAT_RGB/status_rgb.c
 	src/PID/pid.c
+	src/TASK_WATCHDOG/t_watchdog.c
 	#src/UART/uart.c
 )

@@ -18,6 +18,9 @@ typedef struct pid{
     // Output clamp
     int64_t output_min, output_max;
 
+    // Task watchdog channel
+    int task_wd_chan;
+
 } pid_t;
 
 void pid_init(pid_t *pid);

@@ -8,6 +8,7 @@
 #include "TIMER/main_timer.h"
 #include "STATE_MACHINE/state_machine.h"
 #include "STAT_RGB/status_rgb.h"
+#include "TASK_WATCHDOG/t_watchdog.h"
 //#include "UART/uart.h"
 #include "err_msgq.h"
 #include <zephyr/logging/log.h>
@@ -109,6 +110,12 @@ int main (void)
 int _init_components()
 {
     int ret = 1;
+
+    ret &= t_wd_init();
+    if(!ret){
+        LOG_ERR("Failed to initialize Task Watchdog timer.");
+        return ret;
+    }
 
     ret &= qdec_init(); // Quadrature Encoder
     if(!ret){

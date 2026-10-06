@@ -1,5 +1,6 @@
 #include "pid.h"
 #include "../DRIVER_CONFIG/pid_config.h"
+#include "../TASK_WATCHDOG/t_watchdog.h"
 #include <math.h> // For "llround"
 
 // Helper function that converts a doubled gain value into Q16.16.
@@ -9,6 +10,7 @@ static inline int32_t scaled_pid_gain_from_double(double gain){
 
 void pid_init(pid_t *pid)
 {
+    // (!) Requires prior initialization of Zephyr's task watchdog.
     pid->ki = scaled_pid_gain_from_double(KI);
     pid->kd = scaled_pid_gain_from_double(KP);
     pid->kp = scaled_pid_gain_from_double(KD);
@@ -20,6 +22,9 @@ void pid_init(pid_t *pid)
 
     pid->output_min = -100000000LL;
     pid->output_max = 100000000LL;
+
+    pid->task_wd_chan = task_wdt_add(2000, timeout_cback, NULL);
+
 }
 
 void pid_reset(pid_t *pid)

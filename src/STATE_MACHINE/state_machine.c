@@ -374,15 +374,16 @@ static void _pid_thread_task(void *p1, void *p2, void *p3)
     LOG_INF("PD motor control thread task.");
 
     motor_data_t motor_data = {0};
+    pid_t pid;
+    struct sm machine = {0};
     struct sensor_value prev_encoder = {0}; 
     struct sensor_value current_encoder = {0};
     int64_t trgt_ang_vel_scaled, meas_ang_vel_scaled;
     int64_t current_ticks = 0, prev_ticks = 0;
     int64_t pid_update_output;
     int32_t delta_us;
-    pid_t pid;
     int ret;
-    k_spinlock_key_t slock_key;
+    k_spinlock_key_t slock_key; // For checking "glob_angular_vel_scaled"
 
     memcpy((void *)&motor_data, p2, sizeof(motor_data_t));
 
