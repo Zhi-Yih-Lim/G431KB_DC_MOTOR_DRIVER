@@ -4,6 +4,13 @@ An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, explo
 
 **Development status: in progress.** Peripheral interfaces and event-processing paths are present, but integration is still incomplete. CANFD reception transmission is working. UART is a placeholder.
 
+## Development Progress
+| Module | Status |
+| --- | --- |
+| CAN | :hourglass_flowing_sand: In Progress|
+
+## System Overview
+
 | Area | Details |
 | --- | --- |
 | Platform | STM32G431KB / Nucleo-G431KB; Zephyr C application |
@@ -59,4 +66,21 @@ The logical payload uses 11 bytes in a **12-byte CAN FD frame**:
 | 7–10 | 4 | Big-endian target counter ticks |
 | 11 | 1 | Padding for DLC of 9 = 12 bytes |
 
-The RX hardware filter uses standard CAN identifier `0x64` for the central controller. The source contains stop (`S` prefix), reset (`R` prefix), and move (`MF` / `MB`) decoding. `GT` currently posts **COUNTER_RESET**, an implementation defect. The state machine can independently construct a `TT` response for `SM_EVENT_SEND_TICKS`, but the **CAN send pipeline is unfinished**. 
+## Repository map
+
+```text
+src/
+  main.c                 Component initialization and error polling
+  CAN/                   CAN FD callbacks and workers
+  STATE_MACHINE/         Event processing and controller thread
+  PID/                   Fixed-point P/I arithmetic; full PID in progress
+  PWM/                   Motor-output mapping and channel control
+  QDEC/                  Encoder angle API
+  TIMER/                 TIM2 ticks, heartbeat, and move alarms
+  STAT_RGB/              State-to-color indication
+  TASK_WATCHDOG/         Software watchdog integration
+  DRIVER_CONFIG/         CAN and controller constants
+  UART/                  Placeholder, excluded from build
+  PD_CONTROLLER/         Earlier experiment, excluded from build
+tests/state_machine/     One mocked Zephyr ztest/FFF tick-response test
+```
