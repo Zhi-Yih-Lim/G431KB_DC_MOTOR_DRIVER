@@ -1,14 +1,25 @@
 #include "pid.h"
+#include "../STATE_MACHINE/state_machine.h" // For "sm_post_event"
 #include "../DRIVER_CONFIG/pid_config.h"
 #include "../TASK_WATCHDOG/t_watchdog.h"
+#include "../types.h"
 #include <math.h> // For "llround"
+
+// Custom struct definitions
+struct pid_wd_timeout_data_s{
+    struct sm *sm_p;
+    pid_t pid;
+};
+
+// Forward declarations
+void _pid_wd_timeout_cback(int chan_id, void *usr_data);
 
 // Helper function that converts a doubled gain value into Q16.16.
 static inline int32_t scaled_pid_gain_from_double(double gain){
     return (int32_t)llround(gain * (double)PID_GAIN_SCALE);
 }
 
-void pid_init(pid_t *pid)
+void pid_init(pid_t *pid, struct sm *machine)
 {
     // (!) Requires prior initialization of Zephyr's task watchdog.
     pid->ki = scaled_pid_gain_from_double(KI);
@@ -23,7 +34,18 @@ void pid_init(pid_t *pid)
     pid->output_min = -100000000LL;
     pid->output_max = 100000000LL;
 
-    pid->task_wd_chan = task_wdt_add(2000, timeout_cback, NULL);
+    // TODO: Need to figure out if user data is copied entirely or only by pointer.
+    struct pid_wd_timeout_data_s temp_s = {.sm_p = machine, .pid = pid};
+
+    pid->task_wd_chan = task_wdt_add(PID_WD_TIMEOUT_mS, _pid_wd_timeout_cback, 
+                                     (void *)machine);
+
+    if(pid->task_wd_chan < 0){
+        LOG_ERR("Failed to add pid task watchdog channel, Error %d", pid->task_wd_chan);
+        return 0;
+    }
+
+    return 1;
 
 }
 
@@ -32,6 +54,7 @@ void pid_reset(pid_t *pid)
     pid->accum_err = 0;
     pid->prev_err_scaled = 0;
     pid->has_prev_err = false;
+    delete_t_wd(pid->task_wd_chan);
 }
 
 
@@ -83,5 +106,18 @@ int64_t pid_update(pid_t *pid, int64_t target_scaled,
 
     // Clamp the output if need be.
     return pid_clamp(output, pid->output_min, pid->output_max);
+
+}
+
+
+// Internal functions
+void _pid_wd_timeout_cback(int chan_id, void *usr_data)
+{
+    LOG_ERR("PID watchdog timer timed out.");
+
+    struct sm *sm_p = (struct sm *)usr_data;
+    struct event_struct event_s = {.event = SM_EVENT_PID_WD_TIMEOUT};
+
+    sm_post_event(sm_p, event_s);
 
 }

@@ -52,6 +52,7 @@ typedef enum{
     SM_EVENT_SEND_TICKS,
     SM_EVENT_SEND_ENCODER,
     SM_EVENT_STOP_MOTOR,
+    SM_EVENT_PID_WD_TIMEOUT,
     SM_EVENT_ERROR
 } sm_event_t;
 

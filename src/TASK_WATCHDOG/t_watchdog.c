@@ -2,13 +2,16 @@
 #include <stdint.h>
 #include <zephyr/kernel.h>
 #include <zephyr/task_wdt/task_wdt.h>
+#include <zephyr/logging/log.h>
+
+LOG_MODULE_REGISTER(task_watchdog, 3); // Info level
 
 int t_wd_init()
 {
     return task_wdt_init(NULL) ? 0 : 1; // No hardware fallback
 }
 
-int add_t_wd_chan(uint32_t timeout_us, void (*timeout_cback)(int, void*), 
+int add_t_wd_chan(uint32_t timeout_us, task_wdt_callback_t cback, 
                   void *usr_data)
 {
     return task_wdt_add(timeout_us, timeout_cback, usr_data);
@@ -23,3 +26,4 @@ int delete_t_wd(int chan)
 {
     (void)task_wdt_delete(chan);
 }
+

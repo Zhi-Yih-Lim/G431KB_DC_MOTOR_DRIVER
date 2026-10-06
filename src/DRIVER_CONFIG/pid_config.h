@@ -25,6 +25,10 @@
 // Refresh rate of PD controller
 #define PD_REFR_US 100
 
+// Max duration the motors can keep moving without receiving MOVE
+// command from Central Control Unit 
+#define PID_WD_TIMEOUT_mS 1 // milliseconds
+
 #define PD_THREAD_STACK_SIZE 1024
 #define PD_THREAD_PRIORITY 3 // Highest priority under main.
 

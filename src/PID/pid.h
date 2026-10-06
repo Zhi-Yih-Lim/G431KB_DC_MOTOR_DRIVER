@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+// Forward declaration
+struct sm;
+
 typedef struct pid{
     // Gains represented in Q16.16 format
     int32_t kp, ki, kd;
@@ -23,7 +26,7 @@ typedef struct pid{
 
 } pid_t;
 
-void pid_init(pid_t *pid);
+int pid_init(pid_t *pid, struct sm *machine);
 void pid_reset(pid_t *pid);
 int64_t pid_clamp(int64_t val, int64_t lo, int64_t hi);
 int64_t pid_update(pid_t *pid, int64_t target_scaled,
