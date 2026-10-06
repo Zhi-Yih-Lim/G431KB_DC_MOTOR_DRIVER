@@ -34,3 +34,29 @@ flowchart LR
 ```
 
 Received CAN RX messages are added onto a message queue to which an RX processing thread dequeues and generates relevant events onto a separate event processing message queue. State machine consumes new events posted on this event queue and transitions into the appropriate state, executing relevant state actions through entry and exit functions. Motor control performed in a dedicated high-priority thread, polling angular displacement of the DC motor through QDEC, calculating the actuation signal through an angular velocity PID controller and actuating the DRV8871 module through the PWM peripheral. 
+
+## Hardware configuration
+
+| Peripheral | Pins / configuration |
+| --- | --- |
+| TIM4 PWM | PB6 / channel 1, PB7 / channel 2; pull-ups, inverted polarity in code |
+| TIM3 encoder | PA6 / channel 1, PA7 / channel 2; mode 3; 2448 counts/revolution |
+| CAN FD | PA11 RX, PA12 TX; external transceiver and suitable bus termination required |
+| TIM2 heartbeat | PA4 GPIO; intended 1 s toggle interval |
+| SPI WS2812 | PB3 SCK, PB5 MOSI; one pixel, state colors at 10% brightness |
+
+The encoder's configurations are set to 12 pulses/revolution, a 51:1 gear ratio, and quadrature x4 counting. 
+
+## CAN command format
+
+The logical payload uses 11 bytes in a **12-byte CAN FD frame**:
+
+| Byte offset | Width | Meaning |
+| --- | --- | --- |
+| 0 | 1 | Payload target: local ID `0x65` or broadcast `0xFF` |
+| 1–2 | 2 | Action characters |
+| 3–6 | 4 | Action data; move uses big-endian float bits for rad/s |
+| 7–10 | 4 | Big-endian target counter ticks |
+| 11 | 1 | Padding for DLC of 9 = 12 bytes |
+
+The RX hardware filter uses standard CAN identifier `0x64` for the central controller. The source contains stop (`S` prefix), reset (`R` prefix), and move (`MF` / `MB`) decoding. `GT` currently posts **COUNTER_RESET**, an implementation defect. The state machine can independently construct a `TT` response for `SM_EVENT_SEND_TICKS`, but the **CAN send pipeline is unfinished**. 
