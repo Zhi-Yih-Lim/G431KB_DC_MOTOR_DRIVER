@@ -8,8 +8,9 @@ An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, explo
 | Module | Status |
 | --- | --- |
 | CAN | :hourglass_flowing_sand: In Progress |
+| | <table>  <thead>  <tr style="border: none;">  <th>Sub-feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving received messages to kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
 | State Machine | :hourglass_flowing_sand: In Progress |
-| | <table>  <thead>  <tr>  <th>Sub-feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving received messages to kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
+| | <table>  <thead>  <tr>  <th>Z-value</th>  <th>06</th>  </tr>  </thead>  <tbody>  <tr>  <td>Protocol</td>  <td>04 05</td>  </tr>  <tr>  <td>Protocol Sub</td>  <td>02</td>  </tr>  <tr>  <td>Application</td>  <td>11</td>  </tr>  <tr>  <td>Application Sub</td>  <td>00</td>  </tr>  </tbody>  </table> |
 | PID Controller | :hourglass_flowing_sand: In Progress |
 | PWM Actuation | :hourglass_flowing_sand: In Progress |
 | QDEC Readout | :hourglass_flowing_sand: In Progress |
