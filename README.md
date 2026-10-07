@@ -1,19 +1,22 @@
 # STM32 Motor Controller — Zephyr RTOS
 
-An embedded motor-driver firmware project for the **STM32 Nucleo-G431KB**, exploring CAN FD commands, timer-driven coordination, encoder feedback, and PWM actuation with Zephyr RTOS.
+A motor-driver firmware project for the **STM32 Nucleo-G431KB** exploring CAN FD communication, real-time coordination, state machine implementation, and PID motor control.
 
-**Development status: in progress.** Peripheral interfaces and event-processing paths are present, but integration is still incomplete. CANFD reception transmission is working. UART is a placeholder.
+**Development status: in progress.** Peripheral interfaces and event-processing paths are present, but integration is still incomplete. CANFD reception transmission is working.
 
 ## Development Progress
 | Module | Status |
 | --- | --- |
 | CAN | :hourglass_flowing_sand: In Progress |
-| | <table style="border: none;">  <thead>  <tr>  <th>Sub-feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving received messages to kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr> </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr> <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving messages to & from kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
 | State Machine | :hourglass_flowing_sand: In Progress |
-| | <table>  <thead>  <tr>  <th>Z-value</th>  <th>06</th>  </tr>  </thead>  <tbody>  <tr>  <td>Protocol</td>  <td>04 05</td>  </tr>  <tr>  <td>Protocol Sub</td>  <td>02</td>  </tr>  <tr>  <td>Application</td>  <td>11</td>  </tr>  <tr>  <td>Application Sub</td>  <td>00</td>  </tr>  </tbody>  </table> |
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Full state transition matrix</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  <tr>  <td>State entry & exit functions</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
 | PID Controller | :hourglass_flowing_sand: In Progress |
-| PWM Actuation | :hourglass_flowing_sand: In Progress |
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Dedicated high priority thread</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integral windup & threshold clamp</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Controller Tuning</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
+| PWM Actuation | :hourglass_flowing_sand: In Progress |\
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>CLKW, CCLKW and Brake signals</td>  <td>:white_check_mark: Completed</td>  </tr> <td>PID Integration</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
 | QDEC Readout | :hourglass_flowing_sand: In Progress |
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Angular displacement readout</td>  <td>:white_check_mark: Completed</td>  </tr> <td>PID Integration</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
 | WS2812 Status RGB | :white_check_mark: Completed |
 
 ## System Overview
@@ -80,14 +83,14 @@ src/
   main.c                 Component initialization and error polling
   CAN/                   CAN FD callbacks and workers
   STATE_MACHINE/         Event processing and controller thread
-  PID/                   Fixed-point P/I arithmetic; full PID in progress
-  PWM/                   Motor-output mapping and channel control
-  QDEC/                  Encoder angle API
+  PID/                   Fixed-point P/I arithmetic **In Progress**
+  PWM/                   Motor-output mapping and channel control **In Progress**
+  QDEC/                  Encoder angle API **In Progress**
   TIMER/                 TIM2 ticks, heartbeat, and move alarms
   STAT_RGB/              State-to-color indication
   TASK_WATCHDOG/         Software watchdog integration
   DRIVER_CONFIG/         CAN and controller constants
   UART/                  Placeholder, excluded from build
   PD_CONTROLLER/         Earlier experiment, excluded from build
-tests/state_machine/     One mocked Zephyr ztest/FFF tick-response test
+tests/state_machine/     Zephyr ztest/FFF QEMU backed unit tests **In Progress**
 ```
