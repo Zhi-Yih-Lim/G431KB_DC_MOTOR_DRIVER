@@ -47,7 +47,7 @@ flowchart LR
     Control --> PWM[PWM motor control on TIM4]
     PWM --> Driver[DRV8871 motor driver]
     SM --> RGB[Visualize State machine status via WS2812]
-    SM --> TX[CAN tick response: TX unfinished]
+    SM --> TX[CAN tick response outgoing transmission: Unfinished]
 ```
 
 Received CAN RX messages are added onto a message queue to which an RX processing thread dequeues and generates relevant events onto a separate event processing message queue. State machine consumes new events posted on this event queue and transitions into the appropriate state, executing relevant state actions through entry and exit functions. Motor control performed in a dedicated high-priority thread, polling angular displacement of the DC motor through QDEC, calculating the actuation signal through an angular velocity PID controller and actuating the DRV8871 module through the PWM peripheral. 
