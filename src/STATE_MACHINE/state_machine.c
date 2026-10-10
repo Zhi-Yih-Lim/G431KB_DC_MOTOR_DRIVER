@@ -85,9 +85,27 @@ static inline int64_t angvel_to_scaled(struct sensor_value r)
 // ============================================================================
 // Public APIs
 // ============================================================================
+
+/**
+ * Initializes the state machine instance.
+ *
+ * This function performs the following operations:
+ * - Validates that a valid state machine pointer is provided.
+ * - Initializes the static PID controller instance.
+ * - Sets the initial state to SM_STATE_IDLE.
+ * - Initializes the event message queue for asynchronous event reception.
+ * - Creates and starts the state machine event processing thread.
+ *
+ * @param sm Pointer to a state machine instance. Must not be NULL.
+ * @return 1 on success, 0 if initialization fails (e.g., invalid pointer
+ *         or thread creation failure).
+ *
+ * @note The function uses static memory for the PID instance and event queue.
+ *       The state machine thread runs at priority SM_THREAD_PRIORITY.
+ */
 int sm_init(struct sm *sm)
 {
-    if(sm == NULL){
+    if (sm == NULL) {
         LOG_ERR("No state machine instance provided.");
         return 0;
     }
@@ -95,16 +113,15 @@ int sm_init(struct sm *sm)
     // Initialize static PID instance
     pid_init(&pid);
 
-    // Initialize the state machine's state to be IDLE
+    // Set initial state to IDLE and clear thread identifier
     sm->state = SM_STATE_IDLE;
     sm->sm_tid = 0;
 
-    // Initialize the event message queue.
-    k_msgq_init(&sm->event_queue, event_q_buffer, sizeof(struct event_struct), 
+    // Initialize the event message queue for asynchronous event reception.
+    k_msgq_init(&sm->event_queue, event_q_buffer, sizeof(struct event_struct),
                 SM_EVENT_QUEUE_LENGTH);
 
-    // Configure and start the thread that consumes and process events
-    // asycnchronously added to "sm->event_queue".
+    // Create and start the state machine event processing thread.
     sm->sm_tid = k_thread_create(
         &sm->sm_thread,
         sm_thread_stack,
@@ -115,7 +132,7 @@ int sm_init(struct sm *sm)
         0,
         K_NO_WAIT);
 
-    if(!sm->sm_tid){
+    if (!sm->sm_tid) {
         LOG_ERR("Unable to start the thread for event queue consumption");
         return 0;
     }
@@ -123,19 +140,30 @@ int sm_init(struct sm *sm)
     return 1;
 }
 
+/**
+ * Posts an event to the state machine's event queue.
+ *
+ * This function performs a non-blocking put operation. If the event queue
+ * is full (SM_EVENT_QUEUE_LENGTH events pending), the call fails immediately
+ * and returns 0.
+ *
+ * @param sm Pointer to a state machine instance. Must not be NULL.
+ * @param event_s The event to post.
+ * @return 1 on success, 0 if the event could not be queued.
+ */
 int sm_post_event(struct sm *sm, struct event_struct event_s)
 {
-    if(sm == NULL){
+    if (sm == NULL) {
         LOG_ERR("No state machine instance provided.");
         return 0;
     }
 
     int ret;
-    
-    // Add event to event queue immediately.
+
+    // Add event to event queue immediately (non-blocking).
     ret = k_msgq_put(&sm->event_queue, &event_s, K_NO_WAIT);
 
-    if(ret < 0){
+    if (ret < 0) {
         LOG_ERR("Failed to put event on event queue, Error (%d)", ret);
         return 0;
     }
