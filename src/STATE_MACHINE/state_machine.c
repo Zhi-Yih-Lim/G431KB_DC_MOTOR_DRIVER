@@ -171,9 +171,20 @@ int sm_post_event(struct sm *sm, struct event_struct event_s)
     return 1;
 }
 
+/**
+ * Returns the current state of the state machine.
+ *
+ * This function provides a snapshot of the state machine's current state.
+ * The returned value represents the state at some point during the function
+ * execution; due to asynchronous event processing, the state may change
+ * immediately after this function returns.
+ *
+ * @param sm Pointer to a state machine instance. Must not be NULL.
+ * @return The current state, or SM_STATE_ERROR if sm is NULL.
+ */
 sm_state_t sm_get_state(struct sm *sm)
 {
-    if(sm == NULL){
+    if (sm == NULL) {
         LOG_ERR("No state machine instance provided.");
         return SM_STATE_ERROR;
     }

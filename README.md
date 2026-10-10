@@ -2,14 +2,14 @@
 
 A motor-driver firmware project for the **STM32 Nucleo-G431KB** exploring CAN FD communication, real-time coordination, state machine implementation, and PID motor control.
 
-**Development status: in progress.** Peripheral interfaces and event-processing paths are present, but integration is still incomplete. CANFD reception transmission is working.
+**Development status: in progress.** Core modules are implemented with peripheral interfaces and event-processing paths, but end-to-end integration testing on hardware remains pending.
 
 ## Development Progress
 | Module | Status |
 | --- | --- |
-| CAN | :hourglass_flowing_sand: In Progress |
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr> </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr> <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Adding & Retrieving messages to & from kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  </tbody>  </table> |
-| State Machine | :hourglass_flowing_sand: In Progress |
+| CAN | :white_check_mark: Completed |
+| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr> </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr> <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <tr> <td>Adding & Retrieving messages to & from kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:white_check_mark: Completed</td>  </tr>  </tbody>  </table> |
+| State Machine | :white_check_mark: Completed |
 | | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Full state transition matrix</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  <tr>  <td>State entry & exit functions</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
 | PID Controller | :hourglass_flowing_sand: In Progress |
 | | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Dedicated high priority thread</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integral windup & threshold clamp</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Controller Tuning</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
