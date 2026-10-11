@@ -2,22 +2,33 @@
 
 A motor-driver firmware project for the **STM32 Nucleo-G431KB** exploring CAN FD communication, real-time coordination, state machine implementation, and PID motor control.
 
-**Development status: in progress.** Core modules are implemented with peripheral interfaces and event-processing paths, but end-to-end integration testing on hardware remains pending.
+**Development status: in progress.** Peripheral interfaces and event-processing code are present. CAN transmission, state-machine completion, closed-loop motor control, and fault recovery remain in progress; end-to-end hardware validation is still pending.
 
 ## Development Progress
+
+Statuses describe implementation progress; they do not certify a passing build or hardware validation. Completed subfeatures can belong to a module whose integration remains in progress.
+
 | Module | Status |
 | --- | --- |
-| CAN | :white_check_mark: Completed |
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr> </thead>  <tbody>  <tr>  <td>Sending & Receiving with BRS</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr> <td>Acceptance Filtering</td>  <td>:white_check_mark: Completed</td>  </tr> <tr> <td>Adding & Retrieving messages to & from kmsgq</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integration with State Machine</td>  <td>:white_check_mark: Completed</td>  </tr>  </tbody>  </table> |
-| State Machine | :white_check_mark: Completed |
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Full state transition matrix</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr>  <tr>  <td>State entry & exit functions</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
+| CAN | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>CAN FD reception &amp; acceptance filtering</td><td>:white_check_mark: Completed</td></tr> <tr><td>RX message queuing &amp; retrieval</td><td>:white_check_mark: Completed</td></tr> <tr><td>Command/event integration &amp; queued payload handling</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Outgoing message queuing &amp; CAN FD transmission with BRS</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Tick responses &amp; error notifications</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Queue, mailbox &amp; worker shutdown on error</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
+| State Machine | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Event queue &amp; dispatch worker</td><td>:white_check_mark: Completed</td></tr> <tr><td>Full transition matrix &amp; state entry/exit integration</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Encoder response handling</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Motor-stop confirmation</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Error-state shutdown, event handling &amp; CAN notification</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
 | PID Controller | :hourglass_flowing_sand: In Progress |
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Dedicated high priority thread</td>  <td>:white_check_mark: Completed</td>  </tr>  <tr>  <td>Integral windup & threshold clamp</td>  <td>:white_check_mark: Completed</td>  </tr> <td>Controller Tuning</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
-| PWM Actuation | :hourglass_flowing_sand: In Progress |\
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>CLKW, CCLKW and Brake signals</td>  <td>:white_check_mark: Completed</td>  </tr> <td>PID Integration</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Dedicated high-priority thread lifecycle</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Integral windup &amp; output clamping arithmetic</td><td>:white_check_mark: Completed</td></tr> <tr><td>Encoder-derived angular velocity &amp; control timing</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>PI controller integration &amp; tuning</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Derivative term</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
+| PWM Actuation | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Clockwise &amp; counter-clockwise channel control</td><td>:white_check_mark: Completed</td></tr> <tr><td>Braking, stop handling &amp; controller integration</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Motor power shutdown on PWM failure</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>PWM recovery/reinitialization</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
 | QDEC Readout | :hourglass_flowing_sand: In Progress |
-| | <table>  <thead>  <tr>  <th>Feature</th>  <th>Status</th>  </tr>  </thead>  <tbody>  <tr>  <td>Angular displacement readout</td>  <td>:white_check_mark: Completed</td>  </tr> <td>PID Integration</td>  <td>:hourglass_flowing_sand: In Progress</td>  </tr> </tbody>  </table> |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Angular displacement readout</td><td>:white_check_mark: Completed</td></tr> <tr><td>Velocity-feedback integration with controller</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
+| Timer & Move Scheduling | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Counter readout, reset &amp; heartbeat</td><td>:white_check_mark: Completed</td></tr> <tr><td>Alarm callback posting MOVE events</td><td>:white_check_mark: Completed</td></tr> <tr><td>CAN target-tick scheduling &amp; state-machine integration</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
+| Task Watchdog & Error Recovery | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Watchdog configuration &amp; controller lifecycle integration</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Callback context, timeout handling &amp; recovery</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Main-loop error reporting over CAN</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
+| State-machine Unit Tests | :hourglass_flowing_sand: In Progress |
+| | <table><thead><tr><th>Feature</th><th>Status</th></tr></thead><tbody><tr><td>Tick-response test integration &amp; execution</td><td>:hourglass_flowing_sand: In Progress</td></tr> <tr><td>Transition, stop &amp; error-path coverage</td><td>:hourglass_flowing_sand: In Progress</td></tr></tbody></table> |
 | WS2812 Status RGB | :white_check_mark: Completed |
+
+The controller currently contains proportional and integral calculations; derivative support, feedback integration, and tuning remain in progress. A ztest/FFF case exercises the IDLE tick-response path with mocked dependencies. Test integration and broader coverage remain in progress; no build, test run, or hardware validation was performed for this documentation update.
 
 ## System Overview
 
@@ -29,28 +40,32 @@ A motor-driver firmware project for the **STM32 Nucleo-G431KB** exploring CAN FD
 | Communication | CAN FD configuration: 500 kbit/s arbitration, 2 Mbit/s data |
 | Coordination | Queued state-machine events and motor alarms |
 | Observability | Zephyr logging, heartbeat GPIO for timer and WS2812 status pixel for state-machine |
-| Unit testing | Using ZTEST framework for state-machine transition testing |
+| Unit testing | ztest/FFF tick-response test targeting QEMU Cortex-M3; integration and broader transition coverage in progress |
 | Debugging | Zephyr logging, OpenOCD + GDB, DMM, Oscilloscope |
 
 ## Architecture
 
 ```mermaid
 flowchart LR
-    Host[Central controller] -->|CAN FD commands| RX[Callback and enqueue message]
-    RX --> Worker[RX message processing worker, generating pre-defined events]
+    Host[Central controller] -->|CAN FD commands| RX[RX callback and message queue]
+    RX --> Worker[Command processing: integration in progress]
     Worker --> Events[State-machine event queue]
-    Events --> SM[State machine]
-    SM --> Alarm[Schedule move alarm on TIM2]
+    Events --> SM[State machine: in progress]
+    SM -.-> Alarm[TIM2 target-tick scheduling: in progress]
     Alarm -->|MOVE event| Events
-    SM --> Control[Controller thread: PI controller in progress]
-    Encoder[Poll encoder angle] --> Control
-    Control --> PWM[PWM motor control on TIM4]
+    SM -.-> Control[PI control thread: integration in progress]
+    Encoder[QDEC angle readout] -.-> Feedback[Angular velocity feedback: in progress]
+    Feedback -.-> Control
+    Control -.-> PWM[TIM4 actuation: integration in progress]
     PWM --> Driver[DRV8871 motor driver]
-    SM --> RGB[Visualize State machine status via WS2812]
-    SM --> TX[CAN tick response outgoing transmission: Unfinished]
+    SM --> RGB[WS2812 state indication]
+    SM -.-> TX[CAN responses and error reporting: in progress]
+    TX -.-> Host
 ```
 
-Received CAN RX messages are added onto a message queue to which an RX processing thread dequeues and generates relevant events onto a separate event processing message queue. State machine consumes new events posted on this event queue and transitions into the appropriate state, executing relevant state actions through entry and exit functions. Motor control performed in a dedicated high-priority thread, polling angular displacement of the DC motor through QDEC, calculating the actuation signal through an angular velocity PID controller and actuating the DRV8871 module through the PWM peripheral. 
+The diagram shows the intended system flow; dashed connections identify integration that remains in progress. Received CAN frames pass through an RX queue and command-processing worker toward the state-machine event queue. Command payload handling and complete state/event behavior remain in progress.
+
+TIM2 provides counter readout and heartbeat support, with an alarm callback that posts MOVE events. Scheduling against the CAN-supplied target ticks remains in progress. The controller thread contains calls for QDEC polling, PI calculations, and PWM actuation; angular-velocity feedback, timing, thread lifecycle, and closed-loop integration remain in progress. Outgoing CAN responses, motor-stop handling, watchdog integration, and fault recovery also remain in progress.
 
 ## Hardware configuration
 
@@ -66,7 +81,7 @@ The encoder's configurations are set to 12 pulses/revolution, a 51:1 gear ratio,
 
 ## CAN command format
 
-The logical payload uses 11 bytes in a **12-byte CAN FD frame**:
+Incoming commands use 11 logical payload bytes in a **12-byte CAN FD frame**. Outgoing response integration remains in progress:
 
 | Byte offset | Width | Meaning |
 | --- | --- | --- |
@@ -80,17 +95,18 @@ The logical payload uses 11 bytes in a **12-byte CAN FD frame**:
 
 ```text
 src/
-  main.c                 Component initialization and error polling
-  CAN/                   CAN FD callbacks and workers
-  STATE_MACHINE/         Event processing and controller thread
-  PID/                   Fixed-point P/I arithmetic **In Progress**
-  PWM/                   Motor-output mapping and channel control **In Progress**
-  QDEC/                  Encoder angle API **In Progress**
-  TIMER/                 TIM2 ticks, heartbeat, and move alarms
-  STAT_RGB/              State-to-color indication
-  TASK_WATCHDOG/         Software watchdog integration
+  main.c                 Component initialization; error reporting/recovery in progress
+  CAN/                   RX callbacks and queues; command integration and TX in progress
+  STATE_MACHINE/         Event dispatch; transitions, control and error handling in progress
+  PID/                   Fixed-point PI arithmetic; integration and derivative work in progress
+  PWM/                   Motor-output mapping; stop/fault handling and integration in progress
+  QDEC/                  Encoder angle API; velocity-feedback integration in progress
+  TIMER/                 TIM2 ticks and heartbeat; target-tick scheduling in progress
+  STAT_RGB/              State-to-color indication via WS2812
+  TASK_WATCHDOG/         Software watchdog/controller integration in progress
   DRIVER_CONFIG/         CAN and controller constants
-  UART/                  Placeholder, excluded from build
+  UART/                  Experimental interface, excluded from build
   PD_CONTROLLER/         Earlier experiment, excluded from build
-tests/state_machine/     Zephyr ztest/FFF QEMU backed unit tests **In Progress**
+  Depracated/QDEC/        Earlier counter-based encoder experiment, excluded from build
+unit-tests/state_machine/  ztest/FFF tick-response test; integration and coverage in progress
 ```
