@@ -71,48 +71,11 @@ TIM2 provides counter readout and heartbeat support, with an alarm callback that
 
 The diagram follows the main paths in the current state-machine implementation. State names omit the `SM_STATE_` prefix, and event labels omit `SM_EVENT_`. **WIP = work in progress**: the transition or its associated action still needs implementation or integration. Unmarked paths describe existing code, not verified hardware behavior. Ignored events are omitted for readability.
 
-```mermaid
-stateDiagram-v2
-    direction TB
-    [*] --> IDLE : Initial state
+![Motor driver state transitions. Dashed amber paths marked WIP are work in progress.](docs/images/state-transitions.png)
 
-    IDLE --> COUNTER_RESET : COUNTER_RESET
-    COUNTER_RESET --> IDLE : Counter reset succeeds
+[Open the scalable SVG figure](docs/images/state-transitions.svg).
 
-    IDLE --> MOVE : SCHED_MOVE / schedule alarm - WIP
-    MOVE --> MOVE : SCHED_MOVE / reschedule alarm - WIP
-    MOVE --> MOVE : MOVE / start or update controller - WIP
-    MOVE --> MOVE : SEND_ENCODER / encoder response - WIP
-    MOVE --> IDLE : STOP_MOTOR / stop and confirm - WIP
-
-    IDLE --> GET_TICKS : SEND_TICKS / prepare response - WIP
-    MOVE --> GET_TICKS : SEND_TICKS / prepare response - WIP
-    GET_TICKS --> IDLE : Finish tick-response action - WIP
-
-    IDLE --> ERROR : ERROR or unexpected event - WIP
-    COUNTER_RESET --> ERROR : Reset failure or error path - WIP
-    MOVE --> ERROR : ERROR or controller fault - WIP
-    GET_TICKS --> ERROR : Response failure or error path - WIP
-    ERROR --> ERROR : Remain in error / shutdown and notify - WIP
-
-    note right of MOVE
-        MOVE includes waiting for the alarm.
-        Alarm expiry posts the MOVE event.
-        Scheduling and closed-loop control are WIP.
-    end note
-
-    note right of GET_TICKS
-        Transient response state.
-        CAN transmission is WIP.
-    end note
-
-    note right of ERROR
-        Shutdown, watchdog handling,
-        and CAN error notification are WIP.
-    end note
-```
-
-COUNTER_RESET and GET_TICKS perform their actions within event handling and normally return to IDLE. The current tick-response path returns to IDLE even when requested from MOVE; response integration remains WIP. ERROR has no implemented recovery transition back to IDLE.
+COUNTER_RESET and GET_TICKS perform their actions within event handling and normally return to IDLE. The current tick-response path returns to IDLE even when requested from MOVE; response integration remains WIP.
 
 ## Hardware configuration
 

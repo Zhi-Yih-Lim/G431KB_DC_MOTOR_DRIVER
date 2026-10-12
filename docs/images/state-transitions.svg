@@ -1,0 +1,45 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1500" height="885" viewBox="0 0 1500 885" role="img" aria-labelledby="title desc">
+<title id="title">Motor driver state transitions</title><desc id="desc">Circular states with labeled curved arrows. Dashed amber arrows marked WIP indicate unfinished paths. Main operational transitions are shown.</desc>
+<defs><marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#263444"/></marker><marker id="wip" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto-start-reverse"><path d="M 0 0 L 10 5 L 0 10 z" fill="#a65a00"/></marker></defs>
+<rect width="1500" height="885" fill="white"/>
+<style>text{font-family:Arial,Helvetica,sans-serif;fill:#263444} .label{font-size:19px;paint-order:stroke;stroke:white;stroke-width:9px;stroke-linejoin:round} .wip{fill:#925000} .node{font-size:23px;font-weight:600}</style>
+<text x="60" y="55" text-anchor="start" font-size="30" class="" style="font-size:30px">Motor driver · State transitions</text>
+<text x="60" y="90" text-anchor="start" font-size="18" class="" style="font-size:18px">Event / action labels · SM_STATE_ and SM_EVENT_ prefixes omitted</text>
+<path d="M 880 60 H 940" stroke="#263444" stroke-width="2.5"/><path d="M 1120 60 H 1180" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6"/>
+<text x="955" y="66" text-anchor="start" font-size="17" class="" style="font-size:17px">Existing path</text>
+<text x="1195" y="66" text-anchor="start" font-size="17" class="" style="font-size:17px">WIP: work in progress</text>
+<text x="60" y="140" text-anchor="start" font-size="16" class="" style="font-size:16px">MAIN TRANSITIONS</text>
+<path d="M 287 248 C 380 165 535 165 643 248" fill="none" stroke="#263444" stroke-width="2.5"  marker-end="url(#arrow)"/>
+<text x="465" y="187" text-anchor="middle" font-size="19" class="label" style="font-size:19px">Reset succeeds</text>
+<path d="M 643 342 C 535 421 380 421 287 342" fill="none" stroke="#263444" stroke-width="2.5"  marker-end="url(#arrow)"/>
+<text x="465" y="416" text-anchor="middle" font-size="19" class="label" style="font-size:19px">COUNTER_RESET</text>
+<circle cx="700" cy="165" r="8" fill="#263444"/>
+<path d="M 700 174 L 700 219" fill="none" stroke="#263444" stroke-width="2.5"  marker-end="url(#arrow)"/>
+<text x="733" y="171" text-anchor="start" font-size="16" class="" style="font-size:16px">START</text>
+<path d="M 758 246 C 865 159 1045 159 1152 246" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="955" y="186" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">SCHED_MOVE / schedule alarm · WIP</text>
+<path d="M 1152 344 C 1045 451 865 451 758 344" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="955" y="434" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">STOP_MOTOR / stop and confirm · WIP</text>
+<path d="M 1261 238 C 1445 125 1450 471 1264 349" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="1280" y="490" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">MOVE / controller update · WIP</text>
+<text x="1270" y="518" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">SCHED_MOVE / reschedule · WIP</text>
+<text x="1270" y="546" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">SEND_ENCODER / respond · WIP</text>
+<path d="M 652 354 C 510 444 510 576 652 666" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="405" y="506" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">SEND_TICKS / prepare response · WIP</text>
+<path d="M 748 666 C 890 576 890 444 748 354" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="879" y="578" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">Finish response · WIP</text>
+<path d="M 1165 356 C 1100 510 1030 710 777 710" fill="none" stroke="#a65a00" stroke-width="2.5" stroke-dasharray="9 6" marker-end="url(#wip)"/>
+<text x="1090" y="681" text-anchor="middle" font-size="19" class="label wip" style="font-size:19px">SEND_TICKS · WIP</text>
+<circle cx="230" cy="295" r="76" fill="white" stroke="#263444" stroke-width="2.5"/>
+<text x="230" y="289.0" text-anchor="middle" font-size="23" class="node" style="font-size:23px">COUNTER</text>
+<text x="230" y="317.0" text-anchor="middle" font-size="23" class="node" style="font-size:23px">RESET</text>
+<circle cx="700" cy="295" r="76" fill="white" stroke="#263444" stroke-width="2.5"/>
+<text x="700" y="303.0" text-anchor="middle" font-size="23" class="node" style="font-size:23px">IDLE</text>
+<circle cx="1210" cy="295" r="76" fill="white" stroke="#263444" stroke-width="2.5"/>
+<text x="1210" y="303.0" text-anchor="middle" font-size="23" class="node" style="font-size:23px">MOVE</text>
+<circle cx="700" cy="710" r="76" fill="white" stroke="#263444" stroke-width="2.5"/>
+<text x="700" y="718.0" text-anchor="middle" font-size="23" class="node" style="font-size:23px">GET_TICKS</text>
+<text x="1250" y="610" text-anchor="middle" font-size="16" class="" style="font-size:16px">Includes waiting for the move alarm.</text>
+<text x="700" y="817" text-anchor="middle" font-size="18" class="" style="font-size:18px">COUNTER_RESET and GET_TICKS are transient; their normal return is IDLE.</text>
+<text x="60" y="860" text-anchor="start" font-size="17">WIP includes associated actions and integration. Hardware behavior has not been validated.</text>
+</svg>
