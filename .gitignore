@@ -1,3 +1,4 @@
 /.vscode/
 /.agents/
 /build/
+.DS_Store
