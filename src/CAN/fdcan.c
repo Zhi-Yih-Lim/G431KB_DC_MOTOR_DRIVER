@@ -244,7 +244,7 @@ void _can_tx_callback(const struct device *dev, int error, void *user_data){
     // Get the pointer to the element in "tx_data_arr" whose data has been sent
     struct out_data_group *out_data_p = (struct out_data_group *)user_data;
 
-    // Get the index to the element in the array.
+    // Get the index to the element in 'tx_stage_arr'.
     tx_arr_idx = out_data_p->idx;
 
     // Get the pointer to the state machine instance
@@ -254,23 +254,22 @@ void _can_tx_callback(const struct device *dev, int error, void *user_data){
 
     // If error present, need state machine pointer to throw error
     if(error){
-        LOG_ERR("Sending failed for element %d of tx_data_arr. Error [%d].", 
-                error);
-        event_s.event = SM_EVENT_ERROR;
+        LOG_ERR("Sending failed for element %d of tx_stage_arr. Error [%d].", 
+                tx_arr_idx, error);
+        event_s.event = SM_EVENT_CAN_TX_ERR;
         sm_post_event(sm_p, event_s);
         return;
     }
     else{
-        LOG_INF("Successfully sent message for element %d of tx_data_arr.",
+        LOG_INF("Successfully sent message for element %d of tx_stage_arr.",
                 tx_arr_idx);
+
+        // Re-initialize that element in the array
+        _reinit_out_data_el(tx_arr_idx);
+
+        // Give semaphore to indicate that a mailbox is ready
+        k_sem_give(&can_tx_sem);
     }
-
-    // Re-initialize that element in the array
-    _reinit_out_data_el(tx_arr_idx);
-
-    // Give semaphore to indicate that a mailbox is ready
-    k_sem_give(&can_tx_sem);
-
 }
 
 /*
@@ -563,6 +562,8 @@ void _reinit_stage_arr_el(int el)
 
    // Zero out all of the members of 'can_data' member. 
    tx_stage_arr[el].can_data = (struct can_frame){0};
+
+   tx_stage_arr[el].sm_p = NULL;
 }
 
 int _get_empty_idx(struct out_data_group *arr)
