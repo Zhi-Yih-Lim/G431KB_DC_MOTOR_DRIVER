@@ -227,6 +227,15 @@ void _can_rx_callback(const struct device *dev, struct can_frame *frame,
     }
 }
 
+/*
+    @Brief: Callback invoked when a CAN message is successfully sent out or
+            an error occured.
+
+    @param 'user_data': A pointer to an 'struct out_data_group' element in 
+                        'tx_stage_arr' indicating the data frame that was 
+                        sent out, if successful.
+*/
+
 void _can_tx_callback(const struct device *dev, int error, void *user_data){
     static int tx_arr_idx = 0;
     static struct sm *sm_p = NULL;
@@ -264,6 +273,17 @@ void _can_tx_callback(const struct device *dev, int error, void *user_data){
 
 }
 
+/*
+    @Brief: A thread that waits on messages posted to "can_tx_msgq" through
+            'k_msgq_get()'. Upon message acquisition, waits on a semaphore
+            tracking the available CAN TX mailboxes. When one is acquired,
+            Copies data into any one of the available slots of 'tx_stage_arr'
+            which holds - yet to be sent - can data frames. Once the frame 
+            is successfully sent out, '_can_tx_callback' will clear out the
+            contents of the correspondig slot in "tx_stage_arr" and return a 
+            semaphore.
+*/
+
 void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
 {
     ARG_UNUSED(p2);
@@ -295,6 +315,7 @@ void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
             if(msgq_data.data_len <= CAN_DATA_SIZE){
                 // Populate the empty "struct out_data_group" element.
                 tx_stage_arr[tx_arr_idx].idx = tx_arr_idx;
+                tx_stage_arr[tx_arr_idx].sm_p = sm_p;
                 tx_stage_arr[tx_arr_idx].can_data = 
                     (struct can_frame)CAN_OUT_INIT;
                 memcpy(tx_stage_arr[tx_arr_idx].can_data.data,
