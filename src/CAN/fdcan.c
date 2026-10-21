@@ -12,22 +12,24 @@ LOG_MODULE_REGISTER(fdcan, 3); // Info level
 // ============================================================================
 #define CAN_DTS_NODE DT_NODELABEL(fdcan1);
 /* Number of TX mailboxes */
-#define NUM_OF_TX_BUFF DT_PROP_BY_IDX(CAN_DTS_NODE, bosch_mram_cfg, 7);
+#define NUM_OF_TX_MB DT_PROP_BY_IDX(CAN_DTS_NODE, bosch_mram_cfg, 7);
 /* Initializer for outgoing CAN frame */
-#define CAN_OUT_INIT {.flags = CAN_TX_FLAGS, .id = LOCAL_CAN_ID};
+#define CAN_OUT_INIT {.flags = CAN_TX_FLAGS, .id = LOCAL_CAN_ID, .dlc = 0x3E9};
 
 // ============================================================================
 // Custom local definitions
 // ============================================================================
+/* Element of 'tx_stage_arr' */
 static struct out_data_group{
     struct can_frame can_data;
-    int idx;
+    int idx; // Position in "tx_stage_arr"
     struct sm* sm_p;
 };
 
+/* Element of 'can_tx_msgq' */
 static struct tx_msgq_element{
     uint8_t out_data_arr[CAN_MAX_DLEN];
-    size_t data_len;
+    size_t data_len; // In bytes
 };
 
 // ============================================================================
@@ -60,17 +62,18 @@ void _can_tx_callback(const struct device *dev, int error, void *user_data);
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3);
 void _can_tx_thread_entry_func(void *p1, void *p2, void *p3);
 void _reinit_out_data_el(int el);
+int _get_empty_idx(struct out_data_group *arr);
 
 // ============================================================================
 // Mutexes and Semaphores
 // ============================================================================
-K_SEM_DEFINE(can_tx_sem, 0, NUM_OF_TX_BUFF);
+K_SEM_DEFINE(can_tx_sem, 0, NUM_OF_TX_MB);
 
 // ============================================================================
 // Statically global variable
 // ============================================================================
-// Array that stores outgoing data struct.
-static struct out_data_group tx_data_arr[NUM_OF_TX_BUFF];
+// Staging array for outgoing CAN messages.
+static struct out_data_group tx_stage_arr[NUM_OF_TX_MB];
 
 // TX and RX threads related.
 static struct k_thread rx_thread, tx_thread;
@@ -110,6 +113,11 @@ int fdcan_init(){
     }
     else{
         LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
+    }
+
+    // Set the 'idx' of all elements in "tx_stage_arr" to be -1
+    for(int i=0; i < NUM_OF_TX_MB; i++){
+        tx_stage_arr[i].idx = -1;
     }
 
     return 1;
@@ -241,6 +249,7 @@ void _can_tx_callback(const struct device *dev, int error, void *user_data){
                 error);
         event_s.event = SM_EVENT_ERROR;
         sm_post_event(sm_p, event_s);
+        return;
     }
     else{
         LOG_INF("Successfully sent message for element %d of tx_data_arr.",
@@ -263,32 +272,61 @@ void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
     int ret;
     int tx_arr_idx;
     struct sm *sm_p = (struct sm*)p1;
-    static struct can_frame can_data = {0};
+    static struct can_frame can_data = CAN_OUT_INIT;
+    static struct tx_msgq_element msgq_data = {0};
     struct event_struct event_s;
 
+
     while(1){
-        // Check to see if mailbox available. If not wait until available.
-        // Send next message in FIFO manner from 'can_tx_msgq'.
-        if(!k_sem_take(&can_tx_sem, K_FOREVER)){
+        ret = k_msgq_get(&can_tx_msgq, &msgq_data, K_FOREVER); // Blocking
 
-            ret = k_msgq_get(&can_tx_msgq, &tx_arr_idx, K_FOREVER);
+        if(!k_sem_take(&can_tx_sem, K_FOREVER)){// Blocking
+            // Grab an available slot in "tx_stage_arr", pop an element from 
+            // "tx_msgq"
+            tx_arr_idx = _get_empty_idx(tx_stage_arr);
 
-            if(ret){
-                LOG_ERR("Error %d getting data from can_tx_msgq.", ret);
-                event_s.event = SM_EVENT_ERROR;
+            if(tx_arr_idx < 0){
+                LOG_ERR("Can't find empty slot despite available semaphore.");
+                event_s.event = SM_EVENT_CAN_TX_ERR;
                 sm_post_event(sm_p, event_s);
+                return;
             }
 
-            // Copy data 
+            if(msgq_data.data_len <= CAN_DATA_SIZE){
+                // Populate the empty "struct out_data_group" element.
+                tx_stage_arr[tx_arr_idx].idx = tx_arr_idx;
+                tx_stage_arr[tx_arr_idx].can_data = 
+                    (struct can_frame)CAN_OUT_INIT;
+                memcpy(tx_stage_arr[tx_arr_idx].can_data.data,
+                       msgq_data.out_data_arr,
+                       msgq_data.data_len);
 
-            // Send out can message (mailbox acquisition guaranteed)
-            ret = can_send(fdcan_dev, 
-                           &(*(tx_data_arr+tx_arr_idx)).can_data,
-                           K_FOREVER, _can_tx_callback, 
-                           (void *)(tx_data_arr+tx_arr_idx));
+                // Send the data out
+                ret = can_send(fdcan_dev, 
+                            &(*(tx_stage_arr+tx_arr_idx)).can_data,
+                            K_FOREVER, _can_tx_callback, 
+                            (void *)(tx_stage_arr+tx_arr_idx));
+
+                if(ret){
+                    LOG_ERR("can_send() error of [%d]", ret);
+                    event_s.event = SM_EVENT_CAN_TX_ERR;
+                    sm_post_event(sm_p, event_s);
+                    return;
+                }
+            } 
+            else{
+                LOG_ERR("Raw data length is larger than permitted data size.");
+                event_s.event = SM_EVENT_CAN_TX_ERR;
+                sm_post_event(sm_p, event_s);
+                return;
+            }
         }
-
     }
+    // Should not be here
+    LOG_ERR("Should not be outside while loop of _can_tx_thread_entry_func");
+    event_s.event = SM_EVENT_ERROR;
+    sm_post_event(sm_p, event_s);
+    return;
 }
 
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
@@ -320,6 +358,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             LOG_ERR("Error %d getting data from can_rx_msgq.", ret);
             event_s.event = SM_EVENT_ERROR;
             sm_post_event(sm_p, event_s);
+            return; // Stops continued thread execution
         }
         else{
             if(can_dlc_to_bytes(can_data_struct_p->dlc) != CAN_DATA_SIZE){
@@ -488,16 +527,31 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             }
         }
     }    
+
+    // TODO: Not supposed to be here.
+    return;
 }
 
 // ============================================================================
 // Helper methods
 // ============================================================================
-void _reinit_out_data_el(int el)
+void _reinit_stage_arr_el(int el)
 {
    // Set the 'idx' member to be -1 
-   tx_data_arr[el].idx = -1;
+   tx_stage_arr[el].idx = -1;
 
    // Zero out all of the members of 'can_data' member. 
-   tx_data_arr[el].can_data = (struct can_frame){0};
+   tx_stage_arr[el].can_data = (struct can_frame){0};
+}
+
+int _get_empty_idx(struct out_data_group *arr)
+{
+    // Linear search for an element whose 'idx' == -1
+    for(int i=0; i < NUM_OF_TX_MB; i++){
+        if(arr[i].idx < 0){
+            return i;
+        }
+    }
+
+    return -1;
 }

@@ -52,7 +52,10 @@ typedef enum{
     SM_EVENT_SEND_TICKS,
     SM_EVENT_SEND_ENCODER,
     SM_EVENT_STOP_MOTOR,
-    SM_EVENT_PID_WD_TIMEOUT,
+    SM_EVENT_PID_WD_TIMEOUT,    // PID watchdog timeout event
+    SM_EVENT_CAN_TX_ERR,        // Error sending CAN message out
+    SM_EVENT_CAN_RX_ERR,
+    SM_EVENT_KER_API_ERR,       // Kernal API call errors
     SM_EVENT_ERROR
 } sm_event_t;
 
