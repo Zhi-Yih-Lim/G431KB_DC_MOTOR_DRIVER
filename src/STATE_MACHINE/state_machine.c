@@ -143,17 +143,15 @@ int sm_init(struct sm *sm)
 /**
  * Posts an event to the state machine's event queue.
  *
- * This function performs a non-blocking put operation. If the event queue
- * is full (SM_EVENT_QUEUE_LENGTH events pending), the call fails immediately
- * and returns 0.
+ * This function performs a non-blocking put operation.
  *
- * @param sm Pointer to a state machine instance. Must not be NULL.
+ * @param sm_p Pointer to a state machine instance. Must not be NULL.
  * @param event_s The event to post.
- * @return 1 on success, 0 if the event could not be queued.
+ * @return void
  */
-int sm_post_event(struct sm *sm, struct event_struct event_s)
+void sm_post_event(struct sm *sm_p, struct event_struct event_s)
 {
-    if (sm == NULL) {
+    if (sm_p == NULL) {
         LOG_ERR("No state machine instance provided.");
         return 0;
     }
@@ -161,14 +159,13 @@ int sm_post_event(struct sm *sm, struct event_struct event_s)
     int ret;
 
     // Add event to event queue immediately (non-blocking).
-    ret = k_msgq_put(&sm->event_queue, &event_s, K_NO_WAIT);
+    ret = k_msgq_put(&sm_p->event_queue, &event_s, K_NO_WAIT);
 
     if (ret < 0) {
         LOG_ERR("Failed to put event on event queue, Error (%d)", ret);
-        return 0;
+        _sm_error_entry(sm_p); // Since no longer able to use event queue,
+                               // invoke error entry directly.
     }
-
-    return 1;
 }
 
 /**
@@ -498,8 +495,8 @@ static void _pid_thread_task(void *p1, void *p2, void *p3)
     // If ever broken out of while loop, that means that error has occured.
     // Instead of invoking _sm_error_entry(), put an error event on the event
     // queue so that this thread is able to return/ terminate execution.
-    ret = sm_post_event((struct sm *)p1, 
-                        (struct event_struct){.event = SM_EVENT_ERROR});
+    sm_post_event((struct sm *)p1, 
+            (struct event_struct){.event = SM_EVENT_ERROR});
 
     // Reset the flag.
     atomic_set(&pd_stop_flag, 0);

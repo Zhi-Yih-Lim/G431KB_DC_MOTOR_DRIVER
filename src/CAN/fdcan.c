@@ -442,8 +442,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 
                 LOG_INF("Target ID within acceptance field.");
 
-                // TODO: Analyze message and post events to 
-                //       sm_post_event();
+                // Extract the action command.
                 memcpy(action_arr, can_data_struct_p->data+CAN_TID_SIZE, 
                        (size_t)CAN_ACTION_SIZE);
 
@@ -462,8 +461,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                     switch(action_arr[0]){
                         case 'S': // Stop command
                             event_s.event = SM_EVENT_STOP_MOTOR;
-                            ret = sm_post_event(sm_p,
-                                                event_s);
+                            sm_post_event(sm_p, event_s);
                                                 
                             if(!ret){
                                 LOG_ERR("Failed to post stop motor event \
@@ -474,8 +472,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                             break;
                         case 'R': // Reset counter command 
                             event_s.event = SM_EVENT_COUNTER_RESET;
-                            ret = sm_post_event(sm_p, 
-                                                event_s);
+                            sm_post_event(sm_p, event_s);
 
                             if(!ret){
                                 LOG_ERR("Failed to post counter reset event \
@@ -546,8 +543,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                                     // TODO: Do not pass by ref.
                                     // (!) "m_data" passed by ref
                                     event_s.user_data = (void *)&m_data;
-                                    ret = sm_post_event(sm_p, 
-                                                        event_s);
+                                    sm_post_event(sm_p, event_s);
                                     break;
                                 case 'B': // Counter-clockwise
                                     LOG_INF("Motor moving counter-clockwise.");
@@ -556,7 +552,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                                     // TODO: Do not pass by ref.
                                     // (!) "m_data" passed by ref
                                     event_s.user_data = (void *)&m_data;
-                                    ret = sm_post_event(sm_p, event_s);
+                                    sm_post_event(sm_p, event_s);
                                     break;
                             }
                             break;
@@ -564,18 +560,13 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                             switch(action_arr[1]){
                                 case 'T': // Get counter ticks
                                     event_s.event = SM_EVENT_SEND_TICKS;
-                                    ret = sm_post_event(sm_p, event_s);
-                                    
-                                    if(!ret){
-                                        LOG_ERR("Failed to post send ticks event on to \
-                                                event queue.");
-
-                                        sm_p = NULL;
-                                    }
+                                    sm_post_event(sm_p, event_s);
+                                    break;
+                                case 'E': // Get encoder count
+                                    event_s.event = SM_EVENT_SEND_ENCODER;
+                                    sm_post_event(sm_p, event_s);
                                     break;
                             }
-                            break;
-                        case 'T': // Transmit data from driver
                             break;
                         default:
                             LOG_WRN("Unrecognized action command.");
@@ -584,6 +575,9 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                 }
                 else{
                     LOG_ERR("No state machine instance.");
+                    event_s.event = SM_EVENT_ERROR;
+                    sm_post_event(sm_p, event_s);
+                    break;
                 }
             }
         }
