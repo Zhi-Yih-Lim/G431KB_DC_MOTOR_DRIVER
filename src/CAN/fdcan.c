@@ -102,18 +102,7 @@ int fdcan_init(){
         LOG_INF("FDCAN device found\n");
     }
 
-    // Set up receiving filter and callback
-    int filter_id;
-
-    filter_id = can_add_rx_filter(fdcan_dev, _can_rx_callback, NULL, &rx_filter);
-
-    if(filter_id < 0){
-        LOG_ERR("fdcan_init -> Unable to add rx_filter.\r\n");
-        return 0;
-    }
-    else{
-        LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
-    }
+    
 
     // Set the 'idx' of all elements in "tx_stage_arr" to be -1
     for(int i=0; i < NUM_OF_TX_MB; i++){
@@ -160,6 +149,19 @@ int fd_can_begin_rx_processor(struct sm *sm_p)
     if(!sm_p){
         LOG_ERR("No state machine instance provided.");
         return 0;
+    }
+    // Set up receiving filter and callback
+    int filter_id;
+
+    filter_id = can_add_rx_filter(fdcan_dev, _can_rx_callback, 
+                                  sm_p, &rx_filter);
+
+    if(filter_id < 0){
+        LOG_ERR("fdcan_init -> Unable to add rx_filter.\r\n");
+        return 0;
+    }
+    else{
+        LOG_INF("fdcan_init -> rx_filter successfully added.\r\n");
     }
 
     rx_tid = k_thread_create(&rx_thread, rx_stack_area,
@@ -213,18 +215,24 @@ int fd_can_send(const uint8_t *data_2_send,
 // Internal functions
 // ============================================================================
 
-// Callback for receiving messages (ISR context)
+// Callback for receiving CAN messages (ISR context)
 void _can_rx_callback(const struct device *dev, struct can_frame *frame, 
-                      void *user_data){
-    ARG_UNUSED(user_data);
+                      void *user_data)
+{
+    static struct sm *sm_p = NULL;
+    static struct event_struct event_s = {0};
+    static int ret = 0;
     
-    int ret = k_msgq_put(&can_rx_msgq, (void *)frame, K_NO_WAIT);
-
-    LOG_INF("CAN MSG received");
+    ret = k_msgq_put(&can_rx_msgq, (void *)frame, K_NO_WAIT);
 
     if(ret < 0){
-        k_msgq_put(&can_rx_msgq, NULL, K_NO_WAIT); // Error condition.
+        LOG_ERR("Error putting incoming CAN message into can_rx_msgq.");
+        sm_p = (struct sm*)user_data;
+        event_s.event = SM_EVENT_KER_API_ERR;
+        sm_post_event(sm_p, event_s);
     }
+
+    LOG_INF("CAN MSG received");
 }
 
 /*
@@ -349,25 +357,33 @@ void _can_tx_thread_entry_func(void *p1, void *p2, void *p3)
     return;
 }
 
+/*
+    @Brief: Thread that blocks on any messages posted to 'can_rx_msgq'
+*/
+
 void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 {
+    ARG_UNUSED(p2);
+    ARG_UNUSED(p3);
+
     struct sm *sm_p = (struct sm*)p1;
 
     int ret;
+    uint8_t target_id; // The destination CAN ID of the incoming message.
+    uint32_t float_byteswap_in, float_byteswap_out; 
+                                  // Used for temporarily storing byte-swapped 
+                                  // float for angular velocity
+
     static struct can_frame t_arr[1];// Assigning static space for pointer 
                                      // variable below
     struct can_frame *can_data_struct_p = t_arr;
     static struct event_struct event_s = {0};
 
-    uint8_t target_id;
     char action_arr[CAN_ACTION_SIZE] = {0}; // Triggers C's zero filling rule
                                             // by providing an initialzer that
                                             // sets the first byte.
     char tick_arr[CAN_TICK_DATA_SIZE] = {0};
 
-    uint32_t float_byteswap_in, float_byteswap_out; 
-                                  // Used for temporarily storing byte-swapped 
-                                  // float for angular velocity
     
     // Wait for messages on the can_rx's message queue.
     // not busy waiting.
@@ -379,6 +395,12 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             event_s.event = SM_EVENT_ERROR;
             sm_post_event(sm_p, event_s);
             return; // Stops continued thread execution
+        }
+        else if(!can_data_struct_p){ // "k_msgq_put" error in "_can_rx_callback"
+            LOG_ERR("Message content is empty.");
+            event_s.event = SM_EVENT_CAN_RX_ERR;
+            sm_post_event(sm_p, event_s);
+            return;
         }
         else{
             if(can_dlc_to_bytes(can_data_struct_p->dlc) != CAN_DATA_SIZE){
@@ -548,7 +570,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
         }
     }    
 
-    // TODO: Not supposed to be here.
+    // Not supposed to be here.
     return;
 }
 
