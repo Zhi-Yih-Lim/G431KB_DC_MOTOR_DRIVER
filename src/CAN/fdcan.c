@@ -102,8 +102,6 @@ int fdcan_init(){
         LOG_INF("FDCAN device found\n");
     }
 
-    
-
     // Set the 'idx' of all elements in "tx_stage_arr" to be -1
     for(int i=0; i < NUM_OF_TX_MB; i++){
         tx_stage_arr[i].idx = -1;
@@ -184,29 +182,49 @@ int fd_can_begin_rx_processor(struct sm *sm_p)
     return 1;
 }
 
-int fd_can_send(const uint8_t *data_2_send, 
-                char *data_type){
-    int ret;
+/*
+    @Brief: Invoked by other methods in this application. Used for sending
+            CAN messages out. Data will be first added to 'can_tx_msgq'
+            which will be poped FIFO by '_can_tx_thread_entry_func' and 
+            coordinated with the available CAN TX mailboxes.
 
-    // Clear out memory contents between sends
-    memset(out_data.data, 0, CAN_MAX_DLEN);
+            (!) Note: This method uses "k_msgq_put" to add messages into
+            'can_tx_msgq' without blocking. In the event that 'can_tx_msgq's
+            buffer is full, new incoming messages will NOT be added to it,
+            ultimately resulting in the message being left out from sending.
 
-    // Set the data length
-    out_data.dlc = can_bytes_to_dlc(CAN_DATA_SIZE),
+    @param len: Number of bytes of source data.
+*/
 
-    // Set contents to send out
-    memcpy(out_data.data, data_2_send, CAN_DATA_SIZE);
+int fd_can_send(const uint8_t *data_2_send, size_t len)
+{
+    static struct tx_msgq_element tx_q_el;
+    static struct k_msgq_attrs msgq_attrs;
 
-    // TODO: Put outgoing message into message queue.
-    //       Avoid using "out_data" as it may be 
-    //       overwritten before being sent out.
-    // TODO: Message put on the message queue should contain pointer
-    //       to the state machine instance in the event of failure of 
-    //       sending out message.
+    if(!data_2_send){
+        LOG_ERR("Data pointer is empty.");
+        return 0;
+    }
+
+    if(len > CAN_DATA_SIZE){
+        LOG_ERR("Payload size exceeds %d bytes", CAN_DATA_SIZE);
+        return 0;
+    }
     
+    k_msgq_get_attrs(&can_tx_msgq, &msgq_attrs);
+    
+    if(msgq_attrs.used_msgs == msgq_attrs.max_msgs){
+        LOG_WRN("can_tx_msgq is full. Current message will be dropped.");
+        return 0;
+    }
 
+    // Populate 'tx_msgq_element' accordingly
+    tx_q_el.data_len = len;
+    memcpy(tx_q_el.out_data_arr, data_2_send, len);
 
-
+    // Put item to 'can_tx_msgq'
+    (void)k_msgq_put(&can_tx_msgq, &tx_q_el, K_NO_WAIT);
+    
     return 1;
 }
 
@@ -231,8 +249,9 @@ void _can_rx_callback(const struct device *dev, struct can_frame *frame,
         event_s.event = SM_EVENT_KER_API_ERR;
         sm_post_event(sm_p, event_s);
     }
-
-    LOG_INF("CAN MSG received");
+    else{
+        LOG_INF("CAN MSG received");
+    }
 }
 
 /*
@@ -596,6 +615,5 @@ int _get_empty_idx(struct out_data_group *arr)
             return i;
         }
     }
-
     return -1;
 }
