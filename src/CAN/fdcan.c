@@ -396,7 +396,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
     static struct can_frame t_arr[1];// Assigning static space for pointer 
                                      // variable below
     struct can_frame *can_data_struct_p = t_arr;
-    static struct event_struct event_s = {0};
+    struct event_struct event_s = {0};
 
     char action_arr[CAN_ACTION_SIZE] = {0}; // Triggers C's zero filling rule
                                             // by providing an initialzer that
@@ -413,13 +413,13 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
             LOG_ERR("Error %d getting data from can_rx_msgq.", ret);
             event_s.event = SM_EVENT_ERROR;
             sm_post_event(sm_p, event_s);
-            return; // Stops continued thread execution
+            break;
         }
         else if(!can_data_struct_p){ // "k_msgq_put" error in "_can_rx_callback"
             LOG_ERR("Message content is empty.");
             event_s.event = SM_EVENT_CAN_RX_ERR;
             sm_post_event(sm_p, event_s);
-            return;
+            break;
         }
         else{
             if(can_dlc_to_bytes(can_data_struct_p->dlc) != CAN_DATA_SIZE){
@@ -462,33 +462,18 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                         case 'S': // Stop command
                             event_s.event = SM_EVENT_STOP_MOTOR;
                             sm_post_event(sm_p, event_s);
-                                                
-                            if(!ret){
-                                LOG_ERR("Failed to post stop motor event \
-                                        on to event queue.");
-
-                                sm_p = NULL;
-                            }
                             break;
                         case 'R': // Reset counter command 
                             event_s.event = SM_EVENT_COUNTER_RESET;
                             sm_post_event(sm_p, event_s);
-
-                            if(!ret){
-                                LOG_ERR("Failed to post counter reset event \
-                                        on to event queue.");
-
-                                sm_p = NULL;
-                            }
                             break;
                         case 'M': // Move command
-                            // TODO: Do not use static here. Pass-by-value instead.
                             static motor_data_t m_data ={
                                 .trgt_ticks = 0,
                                 .direction = 0,
                                 .angular_vel = 0.0f
                             };
-
+                        
                             // Calclate the zero-indexed position of the first 
                             // byte of the actual data in 
                             // "can_data_struct_p->data"
@@ -509,10 +494,11 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
 
                             // The four-bytes of the actual data section of the
                             // incoming array represents float data.
-                            m_data.angular_vel = 
+                            m_data.angular_vel =  
                                 UNALIGNED_GET((float *)&float_byteswap_out);
 
-                            LOG_INF("The angular data is set to %f.", (double)m_data.angular_vel);
+                            LOG_INF("The angular data is set to %f.", 
+                                    (double)m_data.angular_vel);
                             
                             // Calculate the zero-indexed position of the first
                             // byte of the tick data in 
@@ -532,29 +518,20 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                             // of size 32-bit.
                             m_data.trgt_ticks = 
                                 sys_be32_to_cpu(UNALIGNED_GET((uint32_t*)tick_arr));
-                            
-                            LOG_INF("The target ticks is set to %u.", m_data.trgt_ticks);
 
-                            switch(action_arr[1]){
-                                case 'F': // Clockwise
-                                    LOG_INF("Motor moving clockwise.");
-                                    m_data.direction = 0;
-                                    event_s.event = SM_EVENT_SCHED_MOVE;
-                                    // TODO: Do not pass by ref.
-                                    // (!) "m_data" passed by ref
-                                    event_s.user_data = (void *)&m_data;
-                                    sm_post_event(sm_p, event_s);
-                                    break;
-                                case 'B': // Counter-clockwise
-                                    LOG_INF("Motor moving counter-clockwise.");
-                                    m_data.direction = 1;
-                                    event_s.event = SM_EVENT_SCHED_MOVE;
-                                    // TODO: Do not pass by ref.
-                                    // (!) "m_data" passed by ref
-                                    event_s.user_data = (void *)&m_data;
-                                    sm_post_event(sm_p, event_s);
-                                    break;
-                            }
+                            // Use second character in action array to decide 
+                            // motor rotation direction.
+                            m_data.direction = (action_arr[1] == 'F') ? CLKW : CCLKW;
+
+                            // If "trgt_ticks" == 0, request for immediate
+                            // movement
+                            event_s.event = m_data.trgt_ticks ? SM_EVENT_SCHED_MOVE :
+                                            SM_EVENT_MOVE;
+
+                            event_s.user_data.motor = m_data;
+
+                            sm_post_event(sm_p, event_s);
+
                             break;
                         case 'G': // Get data from driver
                             switch(action_arr[1]){
@@ -565,6 +542,12 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
                                 case 'E': // Get encoder count
                                     event_s.event = SM_EVENT_SEND_ENCODER;
                                     sm_post_event(sm_p, event_s);
+                                    break;
+                                case 'V': // Get current angular velocity
+                                    // TODO
+                                    break;
+                                case 'S': // Get current motor state
+                                    //TODO
                                     break;
                             }
                             break;
@@ -584,7 +567,7 @@ void _can_rx_process_entry_func(void *p1, void *p2, void *p3)
     }    
 
     // Not supposed to be here.
-    return;
+    return; // Terminates thread execution
 }
 
 // ============================================================================

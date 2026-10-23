@@ -20,6 +20,9 @@ struct sm{
 
     // A PD-controller thread that is spawned only in the MOVE state.
     k_tid_t pid_tid;
+
+    // Variable to store pending move commands.
+    motor_data_t pend_move_cmd;
 };
 
 // ============================================================================
@@ -62,5 +65,7 @@ int sm_post_event(struct sm *sm, struct event_struct event_s);
  * @return The current state, or SM_STATE_ERROR if sm is NULL.
  */
 sm_state_t sm_get_state(struct sm *sm);
+
+bool pid_thread_running(struct sm *sm);
 
 #endif

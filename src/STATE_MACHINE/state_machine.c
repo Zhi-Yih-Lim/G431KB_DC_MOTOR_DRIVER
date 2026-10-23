@@ -117,6 +117,9 @@ int sm_init(struct sm *sm)
     sm->state = SM_STATE_IDLE;
     sm->sm_tid = 0;
 
+    // Zero-initialize the pending move command
+    sm->pend_move_cmd = (motor_data_t){0};
+
     // Initialize the event message queue for asynchronous event reception.
     k_msgq_init(&sm->event_queue, event_q_buffer, sizeof(struct event_struct),
                 SM_EVENT_QUEUE_LENGTH);
@@ -149,7 +152,7 @@ int sm_init(struct sm *sm)
  * @param event_s The event to post.
  * @return void
  */
-void sm_post_event(struct sm *sm_p, struct event_struct event_s)
+void sm_post_event(struct sm *sm_p, struct event_struct *event_s_p)
 {
     if (sm_p == NULL) {
         LOG_ERR("No state machine instance provided.");
@@ -159,7 +162,7 @@ void sm_post_event(struct sm *sm_p, struct event_struct event_s)
     int ret;
 
     // Add event to event queue immediately (non-blocking).
-    ret = k_msgq_put(&sm_p->event_queue, &event_s, K_NO_WAIT);
+    ret = k_msgq_put(&sm_p->event_queue, event_s_p, K_NO_WAIT);
 
     if (ret < 0) {
         LOG_ERR("Failed to put event on event queue, Error (%d)", ret);
@@ -189,6 +192,17 @@ sm_state_t sm_get_state(struct sm *sm)
     return sm->state;
 }
 
+bool pid_thread_running(struct sm *sm)
+{
+    int ret = k_thread_join(sm->pid_tid, K_NO_WAIT);
+
+    if(ret == -EBUSY){
+        // Thread is still alive
+        return 1;
+    }
+    
+    return 0;
+}
 // ============================================================================
 // State entry and exit functions
 // ============================================================================
@@ -270,7 +284,8 @@ void _sm_move_motor_entry(struct sm *sm, void *usr_data)
     
 }
 
-static void _sm_sched_pid_thread_alarm(struct sm *sm, void *usr_data){
+static void _sm_sched_pid_thread_alarm(struct sm *sm, void *usr_data)
+{
 
     // Switch the state to  SM_STATE_MOVE so that when an SM_EVENT_MOVE
     // is triggered during this state, the PD thread will be fired.
@@ -516,8 +531,20 @@ static void _sm_thread_dispatch(struct sm *sm, struct event_struct event_s)
                 case SM_EVENT_MOVE:
                     // Transition in "SM_EVENT_MOVE" should only happen when 
                     // the state machine is in "SM_STATE_MOVE".
-                    LOG_ERR("SM_EVENT_MOVE triggered in SM_STATE_IDLE.");
-                    _sm_error_entry(sm);
+
+
+                    // TODO: If a thread is already running and a new incoming motion command
+                    //       is not an immediate one - trgt_ticks = 0 - we want to modify the
+                    //       PID thread's target angular velocity at the instance when the 
+                    //       alarm goes off. It would not be beneficial to terminate and 
+                    //       restart the PID thread. Hence, we will modify the its target
+                    //       parameters in place. 
+                    //       If the new incoming motion command is immediate, we will modify
+                    //       the target motion commands without the need for an alarm.
+                    //       If the new incoming motion command is to stop, we terminate the 
+                    //       PID thread immediately, setting the PWM outputs to be braked.
+
+                     _sm_move_motor_entry(sm, event_s.user_data);
                     break;
                 case SM_EVENT_SCHED_MOVE:
                     // Schedule an alarm to put a move event on the event queue
