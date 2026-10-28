@@ -22,7 +22,10 @@ struct sm{
     k_tid_t pid_tid;
 
     // Variable to store pending move commands.
+    // TODO: Add spinlock around this variable
     motor_data_t pend_move_cmd;
+
+    // TODO: Varaible to keep track of pending alarm's timeout
 };
 
 // ============================================================================
